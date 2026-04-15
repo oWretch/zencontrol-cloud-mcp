@@ -5,9 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import time
-from pathlib import Path
 
-import pytest
 
 from zencontrol_mcp.auth.oauth import (
     AUTHORIZE_URL,
@@ -70,7 +68,9 @@ class TestGeneratePkcePair:
         # Should not contain padding
         assert "=" not in challenge
         # Should be valid base64url characters
-        allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+        allowed = set(
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        )
         assert all(c in allowed for c in challenge)
 
     def test_challenge_matches_verifier(self):

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
 from zencontrol_mcp.models.schemas import DaliCommandType
 from zencontrol_mcp.tools.control import _ACTION_MAP, _pct_to_dali
