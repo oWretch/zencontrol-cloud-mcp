@@ -7,6 +7,8 @@ from zencontrol_mcp.models.schemas import (
     Floor,
     Gateway,
     Group,
+    Profile,
+    Scene,
     Site,
 )
 
@@ -17,5 +19,7 @@ __all__ = [
     "Floor",
     "Gateway",
     "Group",
+    "Profile",
+    "Scene",
     "Site",
 ]

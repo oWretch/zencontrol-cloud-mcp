@@ -1,0 +1,209 @@
+"""MCP tools for Phase 2: gateways, device locations, scenes, and profiles."""
+
+from __future__ import annotations
+
+from fastmcp import Context, FastMCP
+
+from zencontrol_mcp.api.rest import ZenControlAPI
+from zencontrol_mcp.models.schemas import DaliCommand, DaliCommandType
+
+
+def _format_command_result(
+    result: object,
+    target_type: str,
+    target_id: str,
+    action: str,
+) -> str:
+    """Format the result of a send_command call into a readable string."""
+    if result is not None and hasattr(result, "errors") and result.errors:
+        error_lines = [f"  • [{e.error_code}] {e.error_message}" for e in result.errors]
+        return (
+            f"Command '{action}' sent to {target_type} {target_id} "
+            f"with errors:\n" + "\n".join(error_lines)
+        )
+    return f"Successfully sent '{action}' command to {target_type} {target_id}."
+
+
+def register(mcp: FastMCP) -> None:
+    """Register Phase 2 extended tools with the FastMCP server."""
+
+    @mcp.tool()
+    async def list_gateways(
+        ctx: Context,
+        scope_type: str,
+        scope_id: str,
+    ) -> str:
+        """List gateways (DALI controllers) within a scope.
+
+        Gateways are the physical controllers that manage DALI lighting buses.
+        Each gateway connects to one or more lighting devices.
+
+        Args:
+            scope_type: Parent scope type. One of: site, floor, map, control_system.
+            scope_id: The ID of the parent scope.
+        """
+        api: ZenControlAPI = ctx.lifespan_context["api"]
+        gateways = await api.list_gateways(scope_type, scope_id)
+
+        if not gateways:
+            return f"No gateways found in {scope_type} {scope_id}."
+
+        lines: list[str] = [
+            f"Found {len(gateways)} gateway(s) in {scope_type} {scope_id}:\n"
+        ]
+        for gw in gateways:
+            label = gw.label.value if gw.label and gw.label.value else "Unlabelled"
+            gw_id_str = "N/A"
+            if gw.gateway_id:
+                gw_id_str = f"{gw.gateway_id.gtin}-{gw.gateway_id.serial}"
+            fw = gw.firmware_version or "unknown"
+            mac = gw.mac_address or "unknown"
+            sync = ""
+            if gw.sync_status:
+                sync = f"  Sync: {gw.sync_status}"
+
+            lines.append(f"• {label}")
+            lines.append(f"  ID: {gw_id_str}")
+            lines.append(f"  Firmware: {fw}  |  MAC: {mac}")
+            if sync:
+                lines.append(sync)
+            lines.append("")
+
+        return "\n".join(lines)
+
+    @mcp.tool()
+    async def list_device_locations(
+        ctx: Context,
+        scope_type: str,
+        scope_id: str,
+    ) -> str:
+        """List device locations within a scope.
+
+        Device locations represent commissioned positions for lighting fixtures.
+        They track addressing and commissioning state.
+
+        Args:
+            scope_type: Parent scope type. One of: site, floor, map, control_system, gateway.
+            scope_id: The ID of the parent scope.
+        """
+        api: ZenControlAPI = ctx.lifespan_context["api"]
+        locations = await api.list_device_locations(scope_type, scope_id)
+
+        if not locations:
+            return f"No device locations found in {scope_type} {scope_id}."
+
+        lines: list[str] = [
+            f"Found {len(locations)} device location(s) in {scope_type} {scope_id}:\n"
+        ]
+        for loc in locations:
+            label = loc.label.value if loc.label and loc.label.value else "Unlabelled"
+            loc_id = loc.device_location_id or "N/A"
+            status = loc.status.value if loc.status and loc.status.value else "unknown"
+
+            # Linked device ID
+            linked = "N/A"
+            if loc.device_id and loc.device_id.gateway_id and loc.device_id.bus_unit_id:
+                gw = loc.device_id.gateway_id
+                bu = loc.device_id.bus_unit_id
+                linked = f"{gw.gtin}-{gw.serial}-{bu.gtin}-{bu.serial}"
+
+            lines.append(f"• {label}  [{status}]")
+            lines.append(f"  ID: {loc_id}")
+            lines.append(f"  Linked device: {linked}")
+            lines.append("")
+
+        return "\n".join(lines)
+
+    @mcp.tool()
+    async def list_scenes(ctx: Context, site_id: str) -> str:
+        """List available DALI scenes for a site.
+
+        Scenes are preconfigured lighting states that can be recalled with control_light.
+
+        Args:
+            site_id: The UUID of the site.
+        """
+        api: ZenControlAPI = ctx.lifespan_context["api"]
+        scenes = await api.list_scenes(site_id)
+
+        if not scenes:
+            return f"No scenes found for site {site_id}."
+
+        lines: list[str] = [f"Found {len(scenes)} scene(s) for site {site_id}:\n"]
+        for scene in scenes:
+            label = scene.label or "Unlabelled"
+            number = scene.scene_number if scene.scene_number is not None else "N/A"
+            lines.append(f"• {label}  (scene number: {number})")
+
+        return "\n".join(lines)
+
+    @mcp.tool()
+    async def list_profiles(ctx: Context, site_id: str) -> str:
+        """List lighting profiles for a site.
+
+        Profiles define scheduled lighting configurations (e.g., 'Work hours', 'After hours').
+        Use set_profile to activate a profile.
+
+        Args:
+            site_id: The UUID of the site.
+        """
+        api: ZenControlAPI = ctx.lifespan_context["api"]
+        profiles = await api.list_profiles(site_id)
+
+        if not profiles:
+            return f"No profiles found for site {site_id}."
+
+        lines: list[str] = [f"Found {len(profiles)} profile(s) for site {site_id}:\n"]
+        for profile in profiles:
+            label = (
+                profile.label.value
+                if profile.label and profile.label.value
+                else "Unlabelled"
+            )
+            number = (
+                profile.profile_number.value
+                if profile.profile_number and profile.profile_number.value is not None
+                else "N/A"
+            )
+            status = (
+                profile.status.value
+                if profile.status and profile.status.value
+                else "unknown"
+            )
+            lines.append(f"• {label}  (number: {number})  [{status}]")
+
+        return "\n".join(lines)
+
+    @mcp.tool()
+    async def set_profile(
+        ctx: Context,
+        target_type: str,
+        target_id: str,
+        profile_number: int,
+    ) -> str:
+        """Activate a lighting profile on a target.
+
+        Profiles define scheduled lighting configurations. Use list_profiles to
+        see available profiles and their numbers.
+
+        Args:
+            target_type: What to apply the profile to. Same options as control_light.
+            target_id: The target's ID (same format as control_light).
+            profile_number: The profile number to activate (0-65535).
+        """
+        api: ZenControlAPI = ctx.lifespan_context["api"]
+
+        if not 0 <= profile_number <= 65535:
+            return "The 'profile_number' parameter must be between 0 and 65535."
+
+        command = DaliCommand(
+            type=DaliCommandType.GO_TO_PROFILE,
+            profile_number=profile_number,
+        )
+
+        try:
+            result = await api.send_command(target_type, target_id, command)
+        except (ValueError, Exception) as exc:
+            return f"Error sending profile command: {exc}"
+
+        return _format_command_result(result, target_type, target_id, "set_profile")

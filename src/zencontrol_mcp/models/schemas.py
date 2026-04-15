@@ -419,6 +419,28 @@ class Ecd(BaseModel):
     operating_mode: IntField | None = Field(default=None, alias="operatingMode")
 
 
+class Profile(BaseModel):
+    """Lighting profile (e.g., 'Work hours', 'After hours')."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    profile_id: str | None = Field(None, alias="profileId")
+    site_id: str | None = Field(None, alias="siteId")
+    label: StringField | None = None
+    profile_number: IntField | None = Field(None, alias="profileNumber")
+    status: StatusField | None = None
+
+
+class Scene(BaseModel):
+    """DALI scene configuration."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    scene_id: str | None = Field(None, alias="sceneId")
+    label: str | None = None
+    scene_number: int | None = Field(None, alias="sceneNumber")
+
+
 # ---------------------------------------------------------------------------
 # DALI command models
 # ---------------------------------------------------------------------------

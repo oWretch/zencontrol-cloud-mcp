@@ -21,6 +21,8 @@ from zencontrol_mcp.models.schemas import (
     Gateway,
     Group,
     Map,
+    Profile,
+    Scene,
     Site,
     Tenancy,
     Zone,
@@ -238,6 +240,54 @@ class ZenControlAPI:
             DeviceLocation.model_validate(dl)
             for dl in data[_response_key("device-locations")]
         ]
+
+    # ------------------------------------------------------------------
+    # Profiles & Scenes
+    # ------------------------------------------------------------------
+
+    async def list_profiles(self, site_id: str) -> list[Profile]:
+        """List lighting profiles for a site."""
+        response = await self.client.get(f"/v2/sites/{site_id}/profiles")
+        response.raise_for_status()
+        data: dict[str, Any] = response.json()
+        return [Profile.model_validate(p) for p in data["profiles"]]
+
+    async def list_scenes(self, site_id: str) -> list[Scene]:
+        """List DALI scenes for a site."""
+        response = await self.client.get(f"/v1/sites/{site_id}/scenes")
+        response.raise_for_status()
+        data: dict[str, Any] = response.json()
+        return [Scene.model_validate(s) for s in data["scenes"]]
+
+    async def get_current_profiles(
+        self,
+        scope_type: str,
+        scope_id: str,
+    ) -> list[dict]:
+        """Get the currently active profiles for gateways in a scope.
+
+        Uses scope-based URL for site/floor/map/tenancy, or a direct URL
+        for gateway/control_system scopes.
+        """
+        if scope_type == "gateway":
+            url = f"/v1/gateways/{scope_id}/current-profile"
+        elif scope_type == "control_system":
+            url = f"/v1/control-systems/{scope_id}/current-profile"
+        else:
+            scope_path = SCOPE_PATH_MAP.get(scope_type)
+            if scope_path is None:
+                msg = (
+                    f"Unknown scope type: {scope_type!r}. "
+                    f"Must be one of: {', '.join(sorted(SCOPE_PATH_MAP))}"
+                )
+                raise ValueError(msg)
+            url = f"/v1/{scope_path}/{scope_id}/gateways/current-profile"
+        response = await self.client.get(url)
+        response.raise_for_status()
+        data = response.json()
+        if isinstance(data, list):
+            return data
+        return [data]
 
     # ------------------------------------------------------------------
     # Commands
