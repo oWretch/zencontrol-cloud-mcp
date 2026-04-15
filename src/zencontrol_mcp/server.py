@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 from fastmcp.server.auth import TokenVerifier
 
 from zencontrol_mcp.api.client import ZenControlClient
+from zencontrol_mcp.api.live import LiveClient
 from zencontrol_mcp.api.rest import ZenControlAPI
 from zencontrol_mcp.auth.token_store import TokenStore
 from zencontrol_mcp.tools import register_all_tools
@@ -87,6 +88,7 @@ async def _lifespan(server: FastMCP) -> AsyncIterator[dict]:
             redirect_uri=config["redirect_uri"],
         )
         client = ZenControlClient(token_store=token_store)
+        live_client = LiveClient(token_factory=token_store.get_valid_token)
     else:
         from fastmcp.server.dependencies import get_access_token
 
@@ -97,11 +99,12 @@ async def _lifespan(server: FastMCP) -> AsyncIterator[dict]:
             return access_token.token
 
         client = ZenControlClient(token_factory=_token_factory)
+        live_client = LiveClient(token_factory=_token_factory)
 
     api = ZenControlAPI(client)
 
     try:
-        yield {"api": api}
+        yield {"api": api, "live": live_client}
     finally:
         await client.close()
 
