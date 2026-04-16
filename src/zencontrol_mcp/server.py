@@ -104,11 +104,30 @@ async def _lifespan(server: FastMCP) -> AsyncIterator[dict]:
 
     api = ZenControlAPI(client)
 
-    # Scope constraint — optionally locked to a site via env var
+    # Scope constraint — optionally locked to a site via env var.
+    # Accepts UUID, tag (e.g. "brown-home"), or name.
     initial_site = os.environ.get("ZENCONTROL_SCOPE_SITE")
-    scope = ScopeConstraint(site_id=initial_site)
+    scope = ScopeConstraint()
     if initial_site:
-        logger.info("Scope constraint initialised from env: site %s", initial_site)
+        try:
+            site = await api.resolve_site_identifier(initial_site)
+            scope.set_site(
+                site.site_id or initial_site,
+                tag=site.tag,
+                name=site.name,
+            )
+            logger.info(
+                "Scope initialised from env: %s (%s)",
+                site.tag or site.name or site.site_id,
+                site.site_id,
+            )
+        except Exception as exc:
+            logger.warning(
+                "ZENCONTROL_SCOPE_SITE=%r could not be resolved: %s — "
+                "starting without scope constraint.",
+                initial_site,
+                exc,
+            )
 
     try:
         yield {"api": api, "live": live_client, "scope": scope}

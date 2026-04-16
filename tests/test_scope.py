@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from zencontrol_mcp.scope import ScopeConstraint
 from zencontrol_mcp.tools._helpers import confirm_broad_command, get_scope_constraint
 
@@ -202,6 +204,81 @@ class TestConfirmBroadCommand:
 # ===========================================================================
 
 
+class TestResolveSiteIdentifier:
+    """Tests for ZenControlAPI.resolve_site_identifier."""
+
+    @staticmethod
+    def _make_site(site_id: str, tag: str | None = None, name: str | None = None):
+        site = MagicMock()
+        site.site_id = site_id
+        site.tag = tag
+        site.name = name
+        return site
+
+    @pytest.mark.asyncio
+    async def test_resolves_uuid_directly(self):
+        from zencontrol_mcp.api.rest import ZenControlAPI
+
+        api = MagicMock(spec=ZenControlAPI)
+        site = self._make_site("3b5b2c02-0e43-423f-9719-758ab3fcb456", tag="hq")
+        api.get_site = AsyncMock(return_value=site)
+        api.list_sites = AsyncMock(return_value=[])
+
+        result = await ZenControlAPI.resolve_site_identifier(
+            api, "3b5b2c02-0e43-423f-9719-758ab3fcb456"
+        )
+        api.get_site.assert_called_once_with("3b5b2c02-0e43-423f-9719-758ab3fcb456")
+        api.list_sites.assert_not_called()
+        assert result is site
+
+    @pytest.mark.asyncio
+    async def test_resolves_by_tag(self):
+        from zencontrol_mcp.api.rest import ZenControlAPI
+
+        api = MagicMock(spec=ZenControlAPI)
+        site_a = self._make_site("uuid-a", tag="alpha-site", name="Alpha Site")
+        site_b = self._make_site("uuid-b", tag="beta-site", name="Beta Site")
+        api.list_sites = AsyncMock(return_value=[site_a, site_b])
+
+        result = await ZenControlAPI.resolve_site_identifier(api, "beta-site")
+        api.get_site.assert_not_called()
+        assert result is site_b
+
+    @pytest.mark.asyncio
+    async def test_resolves_by_name_case_insensitive(self):
+        from zencontrol_mcp.api.rest import ZenControlAPI
+
+        api = MagicMock(spec=ZenControlAPI)
+        site = self._make_site("uuid-x", tag=None, name="Brown Home")
+        api.list_sites = AsyncMock(return_value=[site])
+
+        result = await ZenControlAPI.resolve_site_identifier(api, "brown home")
+        assert result is site
+
+    @pytest.mark.asyncio
+    async def test_tag_match_precedes_name_match(self):
+        from zencontrol_mcp.api.rest import ZenControlAPI
+
+        api = MagicMock(spec=ZenControlAPI)
+        # site_a.name happens to equal identifier, but site_b.tag is exact match
+        site_a = self._make_site("uuid-a", tag=None, name="brown-home")
+        site_b = self._make_site("uuid-b", tag="brown-home", name="Brown Home")
+        api.list_sites = AsyncMock(return_value=[site_a, site_b])
+
+        result = await ZenControlAPI.resolve_site_identifier(api, "brown-home")
+        assert result is site_b
+
+    @pytest.mark.asyncio
+    async def test_raises_value_error_if_not_found(self):
+        from zencontrol_mcp.api.rest import ZenControlAPI
+
+        api = MagicMock(spec=ZenControlAPI)
+        api.list_sites = AsyncMock(return_value=[])
+
+        with pytest.raises(ValueError, match="No site found matching"):
+            await ZenControlAPI.resolve_site_identifier(api, "nonexistent-tag")
+
+
 class TestScopeTools:
     """Test the set_scope / get_scope / clear_scope tools."""
 
@@ -227,9 +304,11 @@ class TestScopeTools:
     async def test_get_scope_constrained(self):
         fn = await self._get_tool_fn("get_scope")
         ctx = MagicMock()
-        ctx.lifespan_context = {"scope": ScopeConstraint(site_id="s-1")}
+        scope = ScopeConstraint()
+        scope.set_site("s-1", tag="my-site", name="My Site")
+        ctx.lifespan_context = {"scope": scope}
         result = await fn(ctx=ctx)
-        assert "s-1" in result
+        assert "my-site" in result
         assert "scoped" in result.lower()
 
     async def test_set_scope_success(self):
@@ -237,24 +316,47 @@ class TestScopeTools:
         api = MagicMock()
         site_obj = MagicMock()
         site_obj.name = "HQ Office"
-        api.get_site = AsyncMock(return_value=site_obj)
+        site_obj.tag = "hq-office"
+        site_obj.site_id = "site-uuid-1"
+        api.resolve_site_identifier = AsyncMock(return_value=site_obj)
         scope = ScopeConstraint()
         ctx = MagicMock()
         ctx.lifespan_context = {"api": api, "scope": scope}
 
-        result = await fn(ctx=ctx, site_id="site-1")
-        assert "HQ Office" in result
-        assert scope.site_id == "site-1"
+        result = await fn(ctx=ctx, site_identifier="hq-office")
+        assert "hq-office" in result
+        assert scope.site_id == "site-uuid-1"
+        assert scope._site_tag == "hq-office"
+
+    async def test_set_scope_by_uuid(self):
+        fn = await self._get_tool_fn("set_scope")
+        api = MagicMock()
+        site_obj = MagicMock()
+        site_obj.name = "HQ Office"
+        site_obj.tag = "hq-office"
+        site_obj.site_id = "3b5b2c02-0e43-423f-9719-758ab3fcb456"
+        api.resolve_site_identifier = AsyncMock(return_value=site_obj)
+        scope = ScopeConstraint()
+        ctx = MagicMock()
+        ctx.lifespan_context = {"api": api, "scope": scope}
+
+        result = await fn(
+            ctx=ctx, site_identifier="3b5b2c02-0e43-423f-9719-758ab3fcb456"
+        )
+        assert "hq-office" in result
+        assert scope.site_id == "3b5b2c02-0e43-423f-9719-758ab3fcb456"
 
     async def test_set_scope_invalid_site(self):
         fn = await self._get_tool_fn("set_scope")
         api = MagicMock()
-        api.get_site = AsyncMock(side_effect=Exception("404 Not Found"))
+        api.resolve_site_identifier = AsyncMock(
+            side_effect=ValueError("No site found matching 'bad-id'")
+        )
         scope = ScopeConstraint()
         ctx = MagicMock()
         ctx.lifespan_context = {"api": api, "scope": scope}
 
-        result = await fn(ctx=ctx, site_id="bad-id")
+        result = await fn(ctx=ctx, site_identifier="bad-id")
         assert "Cannot set scope" in result
         assert scope.site_id is None  # Unchanged
 

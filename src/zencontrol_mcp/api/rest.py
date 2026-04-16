@@ -134,6 +134,46 @@ class ZenControlAPI:
         data: dict[str, Any] = response.json()
         return Site.model_validate(data)
 
+    async def resolve_site_identifier(self, identifier: str) -> Site:
+        """Resolve a site UUID, tag, or name to a Site model.
+
+        Accepts either:
+        - A site UUID (e.g. ``"3b5b2c02-0e43-423f-9719-758ab3fcb456"``)
+        - A site tag matching the portal URL slug (e.g. ``"brown-home"``)
+        - A site name (e.g. ``"Brown Home"``) — case-insensitive fallback
+
+        Args:
+            identifier: UUID, tag, or name of the site.
+
+        Raises:
+            ValueError: If no matching site is found.
+        """
+        import re
+
+        _UUID_RE = re.compile(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            re.IGNORECASE,
+        )
+
+        if _UUID_RE.match(identifier):
+            return await self.get_site(identifier)
+
+        # Tag / name lookup — list all sites and search
+        sites = await self.list_sites()
+        # Exact tag match first (tags are lowercase slugs, portal-style)
+        for site in sites:
+            if site.tag and site.tag == identifier:
+                return site
+        # Case-insensitive name match as fallback
+        identifier_lower = identifier.lower()
+        for site in sites:
+            if site.name and site.name.lower() == identifier_lower:
+                return site
+        raise ValueError(
+            f"No site found matching {identifier!r}. "
+            f"Available sites: {', '.join(s.tag or s.name or str(s.site_id) for s in sites)}"
+        )
+
     # ------------------------------------------------------------------
     # Site-scoped collections
     # ------------------------------------------------------------------

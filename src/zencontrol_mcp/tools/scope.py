@@ -12,7 +12,7 @@ def register(mcp: FastMCP) -> None:
     """Register scope management tools with the FastMCP server."""
 
     @mcp.tool()
-    async def set_scope(ctx: Context, site_id: str) -> str:
+    async def set_scope(ctx: Context, site_identifier: str) -> str:
         """Restrict all operations to a specific site.
 
         Once set, tools will refuse requests targeting other sites.
@@ -21,20 +21,33 @@ def register(mcp: FastMCP) -> None:
         because determining their parent site would require extra API calls.
 
         Args:
-            site_id: The UUID of the site to scope to. Must be a valid, accessible site.
+            site_identifier: The site UUID, tag (portal slug, e.g. 'brown-home'),
+                or name (e.g. 'Brown Home'). Tags match the portal URL:
+                https://cloud.zencontrol.com/sites/{tag}/
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
         scope: ScopeConstraint = ctx.lifespan_context["scope"]
 
-        # Validate the site exists before setting scope
         try:
-            site = await api.get_site(site_id)
+            site = await api.resolve_site_identifier(site_identifier)
         except Exception as exc:
-            return f"Cannot set scope: failed to verify site {site_id} — {exc}"
+            return f"Cannot set scope: {exc}"
 
-        name = site.name or site_id
-        scope.set_site(site_id)
-        return f"Scope set to site '{name}' ({site_id}). Operations targeting other sites will be blocked."
+        scope.set_site(
+            site.site_id or site_identifier,
+            tag=site.tag,
+            name=site.name,
+        )
+
+        label = site.tag or site.name or site.site_id or site_identifier
+        uuid = site.site_id or "unknown"
+        return (
+            f"Scope set to site '{label}' ({uuid}).\n"
+            f"Operations targeting other sites will be blocked.\n"
+            f"Portal URL: https://cloud.zencontrol.com/sites/{site.tag}/"
+            if site.tag
+            else f"Scope set to site '{label}' ({uuid}). Operations targeting other sites will be blocked."
+        )
 
     @mcp.tool()
     async def get_scope(ctx: Context) -> str:
@@ -45,13 +58,17 @@ def register(mcp: FastMCP) -> None:
         """
         scope: ScopeConstraint = ctx.lifespan_context["scope"]
 
-        if scope.site_id:
-            return (
-                f"Operations are scoped to site {scope.site_id}.\n"
-                f"Tools will block requests targeting other sites.\n"
-                f"Use clear_scope to remove this restriction."
+        if not scope.site_id:
+            return "No scope constraint is active. All sites are accessible."
+
+        lines = [f"Operations are scoped to site '{scope.display_name}'."]
+        if scope._site_tag:
+            lines.append(
+                f"Portal URL: https://cloud.zencontrol.com/sites/{scope._site_tag}/"
             )
-        return "No scope constraint is active. All sites are accessible."
+        lines.append(f"UUID: {scope.site_id}")
+        lines.append("Use clear_scope to remove this restriction.")
+        return "\n".join(lines)
 
     @mcp.tool()
     async def clear_scope(ctx: Context) -> str:
@@ -64,6 +81,6 @@ def register(mcp: FastMCP) -> None:
         if not scope.site_id:
             return "No scope constraint was active."
 
-        prev_site = scope.site_id
+        prev = scope.display_name
         scope.clear()
-        return f"Scope constraint removed (was site {prev_site}). All sites are now accessible."
+        return f"Scope constraint removed (was '{prev}'). All sites are now accessible."

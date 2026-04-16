@@ -26,30 +26,48 @@ class ScopeConstraint:
 
     def __init__(self, site_id: str | None = None) -> None:
         self._site_id = site_id
+        self._site_tag: str | None = None
+        self._site_name: str | None = None
 
     @property
     def site_id(self) -> str | None:
-        """The currently constrained site ID, or None if unconstrained."""
+        """The currently constrained site UUID, or None if unconstrained."""
         return self._site_id
 
-    def set_site(self, site_id: str) -> None:
-        """Lock operations to a specific site."""
+    @property
+    def display_name(self) -> str | None:
+        """Human-readable identifier: tag if available, else name, else UUID."""
+        return self._site_tag or self._site_name or self._site_id
+
+    def set_site(
+        self,
+        site_id: str,
+        *,
+        tag: str | None = None,
+        name: str | None = None,
+    ) -> None:
+        """Lock operations to a specific site, optionally storing tag/name for display."""
         self._site_id = site_id
-        logger.info("Scope set to site %s", site_id)
+        self._site_tag = tag
+        self._site_name = name
+        label = tag or name or site_id
+        logger.info("Scope set to site %s (%s)", site_id, label)
 
     def clear(self) -> None:
         """Remove the site scope constraint."""
-        prev = self._site_id
+        prev = self.display_name
         self._site_id = None
+        self._site_tag = None
+        self._site_name = None
         if prev:
-            logger.info("Scope cleared (was site %s)", prev)
+            logger.info("Scope cleared (was %s)", prev)
 
     def validate_site(self, site_id: str) -> str | None:
         """Check a direct site_id parameter. Returns error string or None."""
         if self._site_id and site_id != self._site_id:
             return (
                 f"Site {site_id} is outside the configured scope. "
-                f"Allowed site: {self._site_id}. "
+                f"Allowed site: {self.display_name}. "
                 f"Use get_scope to check or clear_scope to remove the constraint."
             )
         return None
@@ -59,7 +77,7 @@ class ScopeConstraint:
         if self._site_id and scope_type == "site" and scope_id != self._site_id:
             return (
                 f"Site {scope_id} is outside the configured scope. "
-                f"Allowed site: {self._site_id}."
+                f"Allowed site: {self.display_name}."
             )
         return None
 
@@ -70,13 +88,13 @@ class ScopeConstraint:
         if target_type == "site" and target_id != self._site_id:
             return (
                 f"Site {target_id} is outside the configured scope. "
-                f"Allowed site: {self._site_id}."
+                f"Allowed site: {self.display_name}."
             )
         # Zone IDs are formatted as 'siteId-zoneId' — check site prefix
         if target_type == "zone" and self._site_id:
             if not target_id.startswith(self._site_id):
                 return (
                     f"Zone {target_id} does not belong to the scoped site. "
-                    f"Allowed site: {self._site_id}."
+                    f"Allowed site: {self.display_name}."
                 )
         return None
