@@ -15,6 +15,7 @@ from zencontrol_mcp.api.client import ZenControlClient
 from zencontrol_mcp.api.live import LiveClient
 from zencontrol_mcp.api.rest import ZenControlAPI
 from zencontrol_mcp.auth.token_store import TokenStore
+from zencontrol_mcp.resources import hierarchy as hierarchy_resources
 from zencontrol_mcp.scope import ScopeConstraint
 from zencontrol_mcp.tools import register_all_tools
 
@@ -104,6 +105,22 @@ async def _lifespan(server: FastMCP) -> AsyncIterator[dict]:
 
     api = ZenControlAPI(client)
 
+    # Validate credentials at startup — surfaces auth errors early.
+    # In stdio mode this also warms up the token (triggers OAuth if needed).
+    # In HTTP mode, we skip this because auth is per-request.
+    if transport == "stdio":
+        try:
+            sites = await api.list_sites()
+            logger.info(
+                "Credentials validated — %d site(s) accessible.", len(sites)
+            )
+        except Exception as exc:
+            logger.warning(
+                "Could not validate credentials at startup: %s — "
+                "API calls will fail until credentials are configured.",
+                exc,
+            )
+
     # Scope constraint — optionally locked to a site via env var.
     # Accepts UUID, tag (e.g. "brown-home"), or name.
     initial_site = os.environ.get("ZENCONTROL_SCOPE_SITE")
@@ -159,10 +176,14 @@ def create_server(
             "You are connected to a ZenControl DALI-2 lighting system.\n"
             "You can list sites, discover devices and groups, and control lights.\n"
             "\n"
-            "Start by calling list_sites to see available sites, then use "
-            "get_site_details to explore the hierarchy. Use control_light to "
-            "adjust brightness and set_colour for colour temperature or RGB "
-            "control.\n"
+            "Site hierarchy is available as browsable resources:\n"
+            "  zencontrol://sites — all accessible sites\n"
+            "  zencontrol://sites/{tag}/groups — groups for a site (use tag or UUID)\n"
+            "  zencontrol://sites/{tag}/zones — zones, floors, gateways, scenes, profiles\n"
+            "\n"
+            "Start by reading zencontrol://sites to see available sites. Use "
+            "control_light to adjust brightness and set_colour for colour temperature "
+            "or RGB control.\n"
             "\n"
             "Light levels are specified as percentages (0-100%). Scene numbers "
             "are 0-15. Groups are the most common way to control lights — they "
@@ -177,6 +198,7 @@ def create_server(
     mcp._zencontrol_transport = transport  # type: ignore[attr-defined]
 
     register_all_tools(mcp)
+    hierarchy_resources.register(mcp)
 
     return mcp
 
