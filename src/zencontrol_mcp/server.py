@@ -15,6 +15,7 @@ from zencontrol_mcp.api.client import ZenControlClient
 from zencontrol_mcp.api.live import LiveClient
 from zencontrol_mcp.api.rest import ZenControlAPI
 from zencontrol_mcp.auth.token_store import TokenStore
+from zencontrol_mcp.scope import ScopeConstraint
 from zencontrol_mcp.tools import register_all_tools
 
 if TYPE_CHECKING:
@@ -103,8 +104,14 @@ async def _lifespan(server: FastMCP) -> AsyncIterator[dict]:
 
     api = ZenControlAPI(client)
 
+    # Scope constraint — optionally locked to a site via env var
+    initial_site = os.environ.get("ZENCONTROL_SCOPE_SITE")
+    scope = ScopeConstraint(site_id=initial_site)
+    if initial_site:
+        logger.info("Scope constraint initialised from env: site %s", initial_site)
+
     try:
-        yield {"api": api, "live": live_client}
+        yield {"api": api, "live": live_client, "scope": scope}
     finally:
         await client.close()
 

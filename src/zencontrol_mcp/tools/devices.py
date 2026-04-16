@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastmcp import Context, FastMCP
 
 from zencontrol_mcp.api.rest import ZenControlAPI
+from zencontrol_mcp.tools._helpers import get_scope_constraint
 
 
 def _format_dali_id(dali_id: object) -> str:
@@ -31,6 +32,10 @@ def register(mcp: FastMCP) -> None:
             scope_id: The ID of the parent scope (UUID for most, 'gtin-serial' for gateway).
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+
+        if error := get_scope_constraint(ctx).validate_scope(scope_type, scope_id):
+            return error
+
         groups = await api.list_groups(scope_type, scope_id)
 
         if not groups:
@@ -79,6 +84,10 @@ def register(mcp: FastMCP) -> None:
             scope_id: The ID of the parent scope.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+
+        if error := get_scope_constraint(ctx).validate_scope(scope_type, scope_id):
+            return error
+
         devices = await api.list_devices(scope_type, scope_id)
 
         if not devices:

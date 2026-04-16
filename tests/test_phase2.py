@@ -16,6 +16,7 @@ from zencontrol_mcp.models.schemas import (
     StatusField,
     StringField,
 )
+from zencontrol_mcp.scope import ScopeConstraint
 
 
 # ---------------------------------------------------------------------------
@@ -29,7 +30,7 @@ def _make_mock_context(api_mock=None):
         api_mock = MagicMock()
         api_mock.send_command = AsyncMock(return_value=None)
     ctx = MagicMock()
-    ctx.lifespan_context = {"api": api_mock}
+    ctx.lifespan_context = {"api": api_mock, "scope": ScopeConstraint()}
     return ctx, api_mock
 
 

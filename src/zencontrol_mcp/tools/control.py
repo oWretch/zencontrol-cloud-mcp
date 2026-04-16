@@ -6,6 +6,7 @@ from fastmcp import Context, FastMCP
 
 from zencontrol_mcp.api.rest import ZenControlAPI
 from zencontrol_mcp.models.schemas import DaliCommand, DaliCommandType
+from zencontrol_mcp.tools._helpers import confirm_broad_command, get_scope_constraint
 
 # Valid actions mapped to their DaliCommandType
 _ACTION_MAP: dict[str, DaliCommandType] = {
@@ -73,6 +74,10 @@ def register(mcp: FastMCP) -> None:
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
 
+        # Scope constraint check
+        if error := get_scope_constraint(ctx).validate_target(target_type, target_id):
+            return error
+
         # Validate action
         command_type = _ACTION_MAP.get(action)
         if command_type is None:
@@ -98,6 +103,12 @@ def register(mcp: FastMCP) -> None:
             cmd_kwargs["scene"] = scene
 
         command = DaliCommand(**cmd_kwargs)  # type: ignore[arg-type]
+
+        # Elicitation guard for broad-scope commands
+        if cancelled := await confirm_broad_command(
+            ctx, target_type, target_id, action
+        ):
+            return cancelled
 
         try:
             result = await api.send_command(target_type, target_id, command)
@@ -138,6 +149,10 @@ def register(mcp: FastMCP) -> None:
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
 
+        # Scope constraint check
+        if error := get_scope_constraint(ctx).validate_target(target_type, target_id):
+            return error
+
         if mode not in ("temperature", "rgbwaf"):
             return "Mode must be 'temperature' or 'rgbwaf'."
 
@@ -175,14 +190,21 @@ def register(mcp: FastMCP) -> None:
                 level=dali_level,
             )
 
-        try:
-            result = await api.send_command(target_type, target_id, command)
-        except (ValueError, Exception) as exc:
-            return f"Error sending colour command: {exc}"
-
         action_desc = (
             f"colour temperature {kelvin}K"
             if mode == "temperature"
             else "RGBWAF colour"
         )
+
+        # Elicitation guard for broad-scope commands
+        if cancelled := await confirm_broad_command(
+            ctx, target_type, target_id, action_desc
+        ):
+            return cancelled
+
+        try:
+            result = await api.send_command(target_type, target_id, command)
+        except (ValueError, Exception) as exc:
+            return f"Error sending colour command: {exc}"
+
         return _format_command_result(result, target_type, target_id, action_desc)

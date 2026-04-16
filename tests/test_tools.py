@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 
 from zencontrol_mcp.models.schemas import DaliCommandType
+from zencontrol_mcp.scope import ScopeConstraint
 from zencontrol_mcp.tools.control import _ACTION_MAP, _pct_to_dali
 
 
@@ -23,7 +24,7 @@ def _make_mock_context(api_mock=None):
         api_mock.list_groups = AsyncMock(return_value=[])
         api_mock.list_devices = AsyncMock(return_value=[])
     ctx = MagicMock()
-    ctx.lifespan_context = {"api": api_mock}
+    ctx.lifespan_context = {"api": api_mock, "scope": ScopeConstraint()}
     return ctx, api_mock
 
 

@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from zencontrol_mcp.api.live import LiveClient
+from zencontrol_mcp.scope import ScopeConstraint
 from zencontrol_mcp.tools.live import _validate_duration
 
 
@@ -21,7 +22,11 @@ def _make_live_context(live_client: LiveClient):
     """Build a mock MCP Context with a LiveClient in lifespan_context."""
     api_mock = MagicMock()
     ctx = MagicMock()
-    ctx.lifespan_context = {"api": api_mock, "live": live_client}
+    ctx.lifespan_context = {
+        "api": api_mock,
+        "live": live_client,
+        "scope": ScopeConstraint(),
+    }
     return ctx
 
 

@@ -6,6 +6,7 @@ from fastmcp import Context, FastMCP
 
 from zencontrol_mcp.api.rest import ZenControlAPI
 from zencontrol_mcp.models.schemas import DaliCommand, DaliCommandType
+from zencontrol_mcp.tools._helpers import confirm_broad_command, get_scope_constraint
 
 
 def _format_command_result(
@@ -43,6 +44,10 @@ def register(mcp: FastMCP) -> None:
             scope_id: The ID of the parent scope.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+
+        if error := get_scope_constraint(ctx).validate_scope(scope_type, scope_id):
+            return error
+
         gateways = await api.list_gateways(scope_type, scope_id)
 
         if not gateways:
@@ -87,6 +92,10 @@ def register(mcp: FastMCP) -> None:
             scope_id: The ID of the parent scope.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+
+        if error := get_scope_constraint(ctx).validate_scope(scope_type, scope_id):
+            return error
+
         locations = await api.list_device_locations(scope_type, scope_id)
 
         if not locations:
@@ -124,6 +133,10 @@ def register(mcp: FastMCP) -> None:
             site_id: The UUID of the site.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+
+        if error := get_scope_constraint(ctx).validate_site(site_id):
+            return error
+
         scenes = await api.list_scenes(site_id)
 
         if not scenes:
@@ -148,6 +161,10 @@ def register(mcp: FastMCP) -> None:
             site_id: The UUID of the site.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+
+        if error := get_scope_constraint(ctx).validate_site(site_id):
+            return error
+
         profiles = await api.list_profiles(site_id)
 
         if not profiles:
@@ -193,6 +210,10 @@ def register(mcp: FastMCP) -> None:
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
 
+        # Scope constraint check
+        if error := get_scope_constraint(ctx).validate_target(target_type, target_id):
+            return error
+
         if not 0 <= profile_number <= 65535:
             return "The 'profile_number' parameter must be between 0 and 65535."
 
@@ -200,6 +221,12 @@ def register(mcp: FastMCP) -> None:
             type=DaliCommandType.GO_TO_PROFILE,
             profile_number=profile_number,
         )
+
+        # Elicitation guard for broad-scope commands
+        if cancelled := await confirm_broad_command(
+            ctx, target_type, target_id, "set_profile"
+        ):
+            return cancelled
 
         try:
             result = await api.send_command(target_type, target_id, command)

@@ -7,6 +7,7 @@ import asyncio
 from fastmcp import Context, FastMCP
 
 from zencontrol_mcp.api.rest import ZenControlAPI
+from zencontrol_mcp.tools._helpers import get_scope_constraint
 
 
 def register(mcp: FastMCP) -> None:
@@ -21,6 +22,11 @@ def register(mcp: FastMCP) -> None:
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
         sites = await api.list_sites()
+
+        # Filter to scoped site if constraint is active
+        scope = get_scope_constraint(ctx)
+        if scope.site_id:
+            sites = [s for s in sites if s.site_id == scope.site_id]
 
         if not sites:
             return "No sites found for the authenticated user."
@@ -62,6 +68,9 @@ def register(mcp: FastMCP) -> None:
             site_id: The UUID of the site to query.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+
+        if error := get_scope_constraint(ctx).validate_site(site_id):
+            return error
 
         site, (floors, tenancies, zones, gateways) = await asyncio.gather(
             api.get_site(site_id),

@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from zencontrol_mcp.api.rest import ZenControlAPI
+from zencontrol_mcp.scope import ScopeConstraint
 
 
 @pytest.fixture
@@ -26,10 +27,16 @@ def mock_api(mock_client):
 
 
 @pytest.fixture
-def mock_context(mock_api):
+def scope():
+    """Create an unconstrained ScopeConstraint."""
+    return ScopeConstraint()
+
+
+@pytest.fixture
+def mock_context(mock_api, scope):
     """Create a mock MCP Context with the API in lifespan_context."""
     ctx = MagicMock()
-    ctx.lifespan_context = {"api": mock_api}
+    ctx.lifespan_context = {"api": mock_api, "scope": scope}
     return ctx
 
 

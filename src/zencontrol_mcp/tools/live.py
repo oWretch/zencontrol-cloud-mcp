@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastmcp import Context, FastMCP
 
 from zencontrol_mcp.api.live import LiveClient
+from zencontrol_mcp.tools._helpers import get_scope_constraint
 
 
 def _format_gateway_id(gateway_id: dict) -> str:
@@ -44,6 +45,9 @@ def register(mcp: FastMCP) -> None:
 
         if target not in ("groups", "ecgs"):
             return "Target must be 'groups' or 'ecgs'."
+
+        if error := get_scope_constraint(ctx).validate_site(site_id):
+            return error
 
         live: LiveClient = ctx.lifespan_context["live"]
         method = (
@@ -117,6 +121,9 @@ def register(mcp: FastMCP) -> None:
         if sensor_type not in ("light", "occupancy"):
             return "Sensor type must be 'light' or 'occupancy'."
 
+        if error := get_scope_constraint(ctx).validate_site(site_id):
+            return error
+
         live: LiveClient = ctx.lifespan_context["live"]
         method = (
             "event.light-sensor.lux-report"
@@ -189,6 +196,9 @@ def register(mcp: FastMCP) -> None:
             duration: How many seconds to listen for updates (1-30, default 5).
         """
         if error := _validate_duration(duration):
+            return error
+
+        if error := get_scope_constraint(ctx).validate_site(site_id):
             return error
 
         live: LiveClient = ctx.lifespan_context["live"]
