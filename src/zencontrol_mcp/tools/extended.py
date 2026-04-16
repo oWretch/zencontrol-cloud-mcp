@@ -2,31 +2,18 @@
 
 from __future__ import annotations
 
+import time
+
 from fastmcp import Context, FastMCP
 
 from zencontrol_mcp.api.rest import ZenControlAPI
 from zencontrol_mcp.models.schemas import DaliCommand, DaliCommandType
 from zencontrol_mcp.tools._helpers import (
+    _format_command_result,
     confirm_broad_command,
     get_scope_constraint,
     resolve_scope_id,
 )
-
-
-def _format_command_result(
-    result: object,
-    target_type: str,
-    target_id: str,
-    action: str,
-) -> str:
-    """Format the result of a send_command call into a readable string."""
-    if result is not None and hasattr(result, "errors") and result.errors:
-        error_lines = [f"  • [{e.error_code}] {e.error_message}" for e in result.errors]
-        return (
-            f"Command '{action}' sent to {target_type} {target_id} "
-            f"with errors:\n" + "\n".join(error_lines)
-        )
-    return f"Successfully sent '{action}' command to {target_type} {target_id}."
 
 
 def register(mcp: FastMCP) -> None:
@@ -260,7 +247,99 @@ def register(mcp: FastMCP) -> None:
 
         try:
             result = await api.send_command(target_type, target_id, command)
-        except (ValueError, Exception) as exc:
+        except Exception as exc:
             return f"Error sending profile command: {exc}"
 
         return _format_command_result(result, target_type, target_id, "set_profile")
+
+    @mcp.tool()
+    async def get_device_health(
+        ctx: Context,
+        scope_type: str,
+        scope_id: str,
+    ) -> str:
+        """Get control gear health and diagnostic information.
+
+        Retrieves operating time, start counts, temperature, and failure
+        conditions for all accessible ECGs (lighting control gear) in the
+        given scope. Queries the last 7 days of data using LAST aggregation
+        to return the most recent reading per device.
+
+        Args:
+            scope_type: Scope type. One of: site, tenancy.
+            scope_id: The UUID of the site or tenancy. When scope_type is
+                'site', also accepts a tag (e.g. 'brown-home') or name.
+        """
+        import asyncio as _asyncio
+
+        api: ZenControlAPI = ctx.lifespan_context["api"]
+
+        if scope_type == "site":
+            try:
+                site = await api.resolve_site_identifier(scope_id)
+            except ValueError as exc:
+                return str(exc)
+            resolved_id = site.site_id or scope_id
+            if error := get_scope_constraint(ctx).validate_site(resolved_id):
+                return error
+        else:
+            resolved_id = scope_id
+
+        # Use last 7 days as time window to catch recent readings.
+        now_ms = int(time.time() * 1000)
+        seven_days_ms = 7 * 24 * 60 * 60 * 1000
+        start_ms = now_ms - seven_days_ms
+
+        metrics = [
+            ("control-gear-operating-time-sum", "Operating time (hours)"),
+            ("control-gear-start-counter-sum", "Start count"),
+            ("control-gear-temperature", "Temperature (°C)"),
+            ("control-gear-overall-failure-condition", "Failure conditions"),
+        ]
+
+        async def _fetch(metric: str) -> tuple[str, object]:
+            try:
+                result = await api.get_control_gear_health(
+                    scope_type, resolved_id, metric, start_ms, now_ms
+                )
+                return metric, result
+            except Exception as exc:  # noqa: BLE001
+                return metric, exc
+
+        fetch_results = await _asyncio.gather(*[_fetch(m) for m, _ in metrics])
+        results = dict(fetch_results)
+
+        from zencontrol_mcp.models.schemas import AnalyticsResponse
+
+        lines: list[str] = [f"Control gear health for {scope_type} {resolved_id}:\n"]
+
+        for metric_key, label in metrics:
+            result = results.get(metric_key)
+            lines.append(f"## {label}")
+            if isinstance(result, Exception):
+                lines.append(f"  (unavailable: {result})\n")
+                continue
+
+            if not isinstance(result, AnalyticsResponse) or not result.items:
+                lines.append("  No data available.\n")
+                continue
+
+            for item in result.items:
+                item_id = item.id or "unknown"
+                if not item.values:
+                    continue
+                latest = item.values[-1]
+                if isinstance(latest, dict):
+                    # Failure condition response format
+                    issue = latest.get("issue", "")
+                    details = latest.get("details", {})
+                    contains_issue = details.get("containsIssue", False)
+                    value_str = "⚠ ISSUE" if contains_issue else "OK"
+                    if issue:
+                        value_str += f" ({issue})"
+                else:
+                    value_str = str(latest)
+                lines.append(f"  • {item_id}: {value_str}")
+            lines.append("")
+
+        return "\n".join(lines)

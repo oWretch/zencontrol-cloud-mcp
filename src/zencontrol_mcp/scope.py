@@ -39,6 +39,11 @@ class ScopeConstraint:
         """Human-readable identifier: tag if available, else name, else UUID."""
         return self._site_tag or self._site_name or self._site_id
 
+    @property
+    def site_tag(self) -> str | None:
+        """The site's portal tag (URL slug), or None if not set."""
+        return self._site_tag
+
     def set_site(
         self,
         site_id: str,

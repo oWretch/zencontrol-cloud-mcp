@@ -11,6 +11,7 @@ from typing import Any
 
 from zencontrol_mcp.api.client import ZenControlClient
 from zencontrol_mcp.models.schemas import (
+    AnalyticsResponse,
     ControlSystem,
     DaliCommand,
     DaliCommandErrors,
@@ -119,9 +120,17 @@ class ZenControlAPI:
     # Sites
     # ------------------------------------------------------------------
 
-    async def list_sites(self) -> list[Site]:
-        """List all sites visible to the authenticated user."""
-        response = await self.client.get("/v2/sites")
+    async def list_sites(self, permission_group: str | None = None) -> list[Site]:
+        """List all sites visible to the authenticated user.
+
+        Args:
+            permission_group: Pass ``"ALL"`` to include permission metadata for
+                each site in the response.
+        """
+        params: dict[str, Any] = {}
+        if permission_group:
+            params["permissionGroup"] = permission_group
+        response = await self.client.get("/v2/sites", params=params or None)
         response.raise_for_status()
         data: dict[str, Any] = response.json()
         logger.debug("list_sites returned %d site(s)", len(data.get("sites", [])))
@@ -237,10 +246,26 @@ class ZenControlAPI:
             for cs in data[_response_key("control-systems")]
         ]
 
-    async def list_groups(self, scope_type: str, scope_id: str) -> list[Group]:
-        """List groups within a scope (site, floor, map, control-system, gateway)."""
+    async def list_groups(
+        self,
+        scope_type: str,
+        scope_id: str,
+        permission_group: str | None = None,
+    ) -> list[Group]:
+        """List groups within a scope (site, floor, map, control-system, gateway).
+
+        Args:
+            scope_type: Parent scope type.
+            scope_id: Parent scope identifier.
+            permission_group: Pass ``"ALL"`` to include per-group permission
+                metadata in the response (e.g., whether the current user can
+                control or only view each group).
+        """
         url = _build_scoped_url(scope_type, scope_id, "groups")
-        response = await self.client.get(url)
+        params: dict[str, Any] = {}
+        if permission_group:
+            params["permissionGroup"] = permission_group
+        response = await self.client.get(url, params=params or None)
         response.raise_for_status()
         data: dict[str, Any] = response.json()
         return [Group.model_validate(g) for g in data["groups"]]
@@ -281,10 +306,20 @@ class ZenControlAPI:
         self,
         scope_type: str,
         scope_id: str,
+        permission_group: str | None = None,
     ) -> list[DeviceLocation]:
-        """List device locations within a scope."""
+        """List device locations within a scope.
+
+        Args:
+            scope_type: Parent scope type.
+            scope_id: Parent scope identifier.
+            permission_group: Pass ``"ALL"`` to include permission metadata.
+        """
         url = _build_scoped_url(scope_type, scope_id, "device-locations")
-        response = await self.client.get(url)
+        params: dict[str, Any] = {}
+        if permission_group:
+            params["permissionGroup"] = permission_group
+        response = await self.client.get(url, params=params or None)
         response.raise_for_status()
         data: dict[str, Any] = response.json()
         return [
@@ -339,6 +374,51 @@ class ZenControlAPI:
         if isinstance(data, list):
             return data
         return [data]
+
+    # ------------------------------------------------------------------
+    # Diagnostics / health
+    # ------------------------------------------------------------------
+
+    async def get_control_gear_health(
+        self,
+        scope_type: str,
+        scope_id: str,
+        metric: str,
+        start_time: int,
+        end_time: int,
+    ) -> AnalyticsResponse:
+        """Fetch a control gear health metric for all ECGs in a scope.
+
+        Uses the ZenControl diagnostics analytics API. All health endpoints
+        require a time window (``start_time``/``end_time`` as Unix epoch
+        milliseconds) and use ``aggregation=LAST`` to return the most recent
+        reading within that window.
+
+        Args:
+            scope_type: One of ``"site"`` or ``"tenancy"``.
+            scope_id: The site/tenancy UUID.
+            metric: Diagnostic metric name, e.g. ``"control-gear-operating-time-sum"``,
+                ``"control-gear-overall-failure-condition"``, ``"control-gear-temperature"``.
+            start_time: Window start as Unix epoch milliseconds.
+            end_time: Window end as Unix epoch milliseconds.
+        """
+        scope_path = SCOPE_PATH_MAP.get(scope_type)
+        if scope_path is None:
+            msg = (
+                f"Unknown scope type: {scope_type!r}. "
+                f"Health endpoints support: site, tenancy."
+            )
+            raise ValueError(msg)
+
+        url = f"/v1/{scope_path}/{scope_id}/ecgs/{metric}"
+        params: dict[str, Any] = {
+            "startTime": start_time,
+            "endTime": end_time,
+            "aggregation": "LAST",
+        }
+        response = await self.client.get(url, params=params)
+        response.raise_for_status()
+        return AnalyticsResponse.model_validate(response.json())
 
     # ------------------------------------------------------------------
     # Commands

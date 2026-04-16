@@ -289,6 +289,7 @@ class Group(BaseModel):
     status: StatusField | None = None
     map_id: str | None = Field(default=None, alias="mapId")
     visibility: GroupVisibility | None = None
+    permissions: GroupPermissions | None = None
 
 
 class Gateway(BaseModel):
@@ -503,3 +504,67 @@ class DaliCommandErrors(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     errors: list[DaliCommandError] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Permission models (returned when permissionGroup=ALL is requested)
+# ---------------------------------------------------------------------------
+
+
+class PermissionLevel(BaseModel):
+    """Read/write permission level for a resource.
+
+    Keys are only present in the API response if their value is ``True``.
+    Absence of a key means the permission is not granted.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    read: bool | None = None
+    write: bool | None = None
+
+
+class GroupPermission(BaseModel):
+    """Permission information for a single group resource."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: bool | None = None
+    aggregate: PermissionLevel | None = None
+    lighting: PermissionLevel | None = None
+
+
+class GroupPermissions(BaseModel):
+    """Full permission information for a group (returned when permissionGroup=ALL).
+
+    ``group`` contains direct group permissions; ``ecg`` contains permissions
+    for the ECGs (control gear) that belong to the group.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    group: GroupPermission | None = None
+    ecg: GroupPermission | None = None
+
+
+# ---------------------------------------------------------------------------
+# Analytics models (used by diagnostics/health endpoints)
+# ---------------------------------------------------------------------------
+
+
+class AnalyticsItem(BaseModel):
+    """A single result row from an analytics/diagnostics endpoint."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str | None = None
+    timestamps: list[int] = Field(default_factory=list)
+    values: list[dict] = Field(default_factory=list)
+
+
+class AnalyticsResponse(BaseModel):
+    """Response wrapper for ZenControl analytics endpoints."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    items: list[AnalyticsItem] = Field(default_factory=list)

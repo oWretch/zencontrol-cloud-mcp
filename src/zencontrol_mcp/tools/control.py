@@ -6,7 +6,11 @@ from fastmcp import Context, FastMCP
 
 from zencontrol_mcp.api.rest import ZenControlAPI
 from zencontrol_mcp.models.schemas import DaliCommand, DaliCommandType
-from zencontrol_mcp.tools._helpers import confirm_broad_command, get_scope_constraint
+from zencontrol_mcp.tools._helpers import (
+    _format_command_result,
+    confirm_broad_command,
+    get_scope_constraint,
+)
 
 # Valid actions mapped to their DaliCommandType
 _ACTION_MAP: dict[str, DaliCommandType] = {
@@ -25,22 +29,6 @@ _VALID_ACTIONS = ", ".join(sorted(_ACTION_MAP))
 def _pct_to_dali(percent: int) -> int:
     """Convert a 0-100 percentage to a 0-254 DALI level."""
     return round(percent * 254 / 100)
-
-
-def _format_command_result(
-    result: object,
-    target_type: str,
-    target_id: str,
-    action: str,
-) -> str:
-    """Format the result of a send_command call into a readable string."""
-    if result is not None and hasattr(result, "errors") and result.errors:
-        error_lines = [f"  • [{e.error_code}] {e.error_message}" for e in result.errors]
-        return (
-            f"Command '{action}' sent to {target_type} {target_id} "
-            f"with errors:\n" + "\n".join(error_lines)
-        )
-    return f"Successfully sent '{action}' command to {target_type} {target_id}."
 
 
 def register(mcp: FastMCP) -> None:
@@ -112,7 +100,7 @@ def register(mcp: FastMCP) -> None:
 
         try:
             result = await api.send_command(target_type, target_id, command)
-        except (ValueError, Exception) as exc:
+        except Exception as exc:
             return f"Error sending command: {exc}"
 
         return _format_command_result(result, target_type, target_id, action)
@@ -204,7 +192,7 @@ def register(mcp: FastMCP) -> None:
 
         try:
             result = await api.send_command(target_type, target_id, command)
-        except (ValueError, Exception) as exc:
+        except Exception as exc:
             return f"Error sending colour command: {exc}"
 
         return _format_command_result(result, target_type, target_id, action_desc)

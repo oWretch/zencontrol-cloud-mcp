@@ -62,9 +62,9 @@ def register(mcp: FastMCP) -> None:
             return "No scope constraint is active. All sites are accessible."
 
         lines = [f"Operations are scoped to site '{scope.display_name}'."]
-        if scope._site_tag:
+        if scope.site_tag:
             lines.append(
-                f"Portal URL: https://cloud.zencontrol.com/sites/{scope._site_tag}/"
+                f"Portal URL: https://cloud.zencontrol.com/sites/{scope.site_tag}/"
             )
         lines.append(f"UUID: {scope.site_id}")
         lines.append("Use clear_scope to remove this restriction.")

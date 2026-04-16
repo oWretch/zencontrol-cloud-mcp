@@ -6,21 +6,18 @@ import argparse
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, AsyncIterator
+from typing import AsyncIterator
 
 from fastmcp import FastMCP
-from fastmcp.server.auth import TokenVerifier
 
 from zencontrol_mcp.api.client import ZenControlClient
 from zencontrol_mcp.api.live import LiveClient
 from zencontrol_mcp.api.rest import ZenControlAPI
+from zencontrol_mcp.auth.proxy import create_remote_auth_provider
 from zencontrol_mcp.auth.token_store import TokenStore
 from zencontrol_mcp.resources import hierarchy as hierarchy_resources
 from zencontrol_mcp.scope import ScopeConstraint
 from zencontrol_mcp.tools import register_all_tools
-
-if TYPE_CHECKING:
-    from fastmcp.server.auth import AccessToken
 
 logger = logging.getLogger(__name__)
 
@@ -51,29 +48,6 @@ def _load_config() -> dict[str, str]:
             "ZENCONTROL_REDIRECT_URI", _DEFAULT_REDIRECT_URI
         ),
     }
-
-
-class ZenControlTokenVerifier(TokenVerifier):
-    """Validates opaque ZenControl access tokens by calling the API.
-
-    Used only in HTTP (streamable-http) transport mode where the MCP server
-    receives pre-authenticated Bearer tokens from the client.
-    """
-
-    async def verify_token(self, token: str) -> AccessToken | None:
-        from fastmcp.server.auth import AccessToken
-
-        import httpx
-
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                "https://api.zencontrol.com/v2/sites",
-                headers={"Authorization": f"Bearer {token}"},
-            )
-            if resp.status_code == 401:
-                return None
-            resp.raise_for_status()
-            return AccessToken(token=token, client_id="zencontrol", scopes=[])
 
 
 @asynccontextmanager
@@ -111,15 +85,12 @@ async def _lifespan(server: FastMCP) -> AsyncIterator[dict]:
     if transport == "stdio":
         try:
             sites = await api.list_sites()
-            logger.info(
-                "Credentials validated — %d site(s) accessible.", len(sites)
-            )
+            logger.info("Credentials validated — %d site(s) accessible.", len(sites))
         except Exception as exc:
-            logger.warning(
-                "Could not validate credentials at startup: %s — "
-                "API calls will fail until credentials are configured.",
-                exc,
-            )
+            raise SystemExit(
+                f"Startup failed: could not validate ZenControl credentials: {exc}\n"
+                "Check ZENCONTROL_CLIENT_ID and ZENCONTROL_CLIENT_SECRET are correct."
+            ) from exc
 
     # Scope constraint — optionally locked to a site via env var.
     # Accepts UUID, tag (e.g. "brown-home"), or name.
@@ -138,7 +109,13 @@ async def _lifespan(server: FastMCP) -> AsyncIterator[dict]:
                 site.tag or site.name or site.site_id,
                 site.site_id,
             )
+        except ValueError as exc:
+            # Bad config — unrecognisable site identifier; crash so the user knows.
+            raise SystemExit(
+                f"ZENCONTROL_SCOPE_SITE={initial_site!r} is not a valid site identifier: {exc}"
+            ) from exc
         except Exception as exc:
+            # Transient (network, timeout) — warn and start without scope constraint.
             logger.warning(
                 "ZENCONTROL_SCOPE_SITE=%r could not be resolved: %s — "
                 "starting without scope constraint.",
@@ -161,14 +138,7 @@ def create_server(
     auth = None
 
     if transport == "streamable-http":
-        from fastmcp.server.auth import RemoteAuthProvider
-
-        verifier = ZenControlTokenVerifier()
-        auth = RemoteAuthProvider(
-            token_verifier=verifier,
-            authorization_servers=["https://login.zencontrol.com"],
-            base_url=f"http://{host}:{port}",
-        )
+        auth = create_remote_auth_provider(base_url=f"http://{host}:{port}")
 
     mcp = FastMCP(
         name="ZenControl",

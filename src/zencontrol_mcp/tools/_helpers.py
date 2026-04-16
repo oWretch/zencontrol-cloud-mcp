@@ -20,6 +20,22 @@ logger = logging.getLogger(__name__)
 _BROAD_SCOPES = frozenset({"site", "tenancy", "floor"})
 
 
+def _format_command_result(
+    result: object,
+    target_type: str,
+    target_id: str,
+    action: str,
+) -> str:
+    """Format the result of a send_command call into a human-readable string."""
+    if result is not None and hasattr(result, "errors") and result.errors:
+        error_lines = [f"  • [{e.error_code}] {e.error_message}" for e in result.errors]
+        return (
+            f"Command '{action}' sent to {target_type} {target_id} "
+            f"with errors:\n" + "\n".join(error_lines)
+        )
+    return f"Successfully sent '{action}' command to {target_type} {target_id}."
+
+
 def get_scope_constraint(ctx: Context) -> ScopeConstraint:
     """Get the ScopeConstraint from the tool context."""
     return ctx.lifespan_context["scope"]

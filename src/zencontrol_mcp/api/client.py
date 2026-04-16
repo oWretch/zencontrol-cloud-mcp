@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import random
 import time
@@ -25,8 +26,15 @@ class ZenControlClient:
 
     Operates in two modes:
     - **stdio mode**: Uses a ``TokenStore`` for locally-managed OAuth tokens.
+      The resolved token is cached in memory between calls.
     - **HTTP/proxy mode**: Uses an async ``token_factory`` callable to obtain
-      tokens from the upstream request context.
+      tokens from the upstream request context. The token is **never** cached
+      because each concurrent request may belong to a different user.
+
+    In both modes GET responses are cached per-token-hash to avoid redundant
+    API calls. The cache is keyed by ``(sha256(token)[:16], method, path,
+    params)`` so that different users always get their own isolated cache
+    entries. POST requests are never cached.
     """
 
     BASE_URL = "https://api.zencontrol.com"
@@ -38,6 +46,7 @@ class ZenControlClient:
         base_url: str = BASE_URL,
         max_retries: int = 3,
         rate_limit_rps: float = 10.0,
+        cache_ttl: float = 60.0,
     ) -> None:
         if token_store is None and token_factory is None:
             msg = "Either token_store or token_factory must be provided"
@@ -48,9 +57,19 @@ class ZenControlClient:
         self._base_url = base_url.rstrip("/")
         self.max_retries = max_retries
         self._min_request_interval = 1.0 / rate_limit_rps
+        self._cache_ttl = cache_ttl
 
+        # Token cache — only populated in stdio mode (single user).
         self._cached_token: str | None = None
         self._last_request_time: float = 0.0
+
+        # Per-token-hash GET response cache.
+        # Key: (token_hash, url_path, frozen_params)
+        # Value: (monotonic_timestamp, response_content_bytes)
+        self._response_cache: dict[tuple, tuple[float, bytes]] = {}
+        _MAX_CACHE_SIZE = 500
+
+        self._MAX_CACHE_SIZE = _MAX_CACHE_SIZE
 
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(
@@ -66,20 +85,62 @@ class ZenControlClient:
     # ------------------------------------------------------------------
 
     async def _get_token(self) -> str:
-        """Get a valid access token from the configured source."""
+        """Get a valid access token from the configured source.
+
+        In HTTP mode (``_token_factory`` set) the token is **never** cached
+        because each concurrent request belongs to a different user — the
+        factory performs a cheap ``contextvars`` lookup instead.
+
+        In stdio mode (``_token_store`` set) the token is cached in memory
+        after the first call to avoid redundant token refreshes.
+        """
+        if self._token_factory is not None:
+            # HTTP mode: always call factory — no caching across users.
+            return await self._token_factory()
+
+        # stdio mode: cache the token to avoid repeated store I/O.
         if self._cached_token is not None:
             return self._cached_token
 
-        if self._token_factory is not None:
-            token = await self._token_factory()
-        elif self._token_store is not None:
-            token = await self._token_store.get_access_token()
-        else:
-            msg = "No token source configured"
-            raise RuntimeError(msg)
-
+        token = await self._token_store.get_valid_token()  # type: ignore[union-attr]
         self._cached_token = token
         return token
+
+    # ------------------------------------------------------------------
+    # Response cache helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _token_hash(token: str) -> str:
+        """Return a short, stable hash of a token for use as a cache key."""
+        return hashlib.sha256(token.encode()).hexdigest()[:16]
+
+    def _cache_key(self, token: str, path: str, params: dict[str, Any] | None) -> tuple:
+        return (
+            self._token_hash(token),
+            path,
+            tuple(sorted((params or {}).items())),
+        )
+
+    def _cache_get(self, key: tuple) -> bytes | None:
+        """Return cached content bytes if present and not expired."""
+        entry = self._response_cache.get(key)
+        if entry is None:
+            return None
+        ts, content = entry
+        if time.monotonic() - ts > self._cache_ttl:
+            del self._response_cache[key]
+            return None
+        return content
+
+    def _cache_put(self, key: tuple, content: bytes) -> None:
+        """Store response content bytes, evicting oldest entry if at capacity."""
+        if len(self._response_cache) >= self._MAX_CACHE_SIZE:
+            oldest_key = min(
+                self._response_cache, key=lambda k: self._response_cache[k][0]
+            )
+            del self._response_cache[oldest_key]
+        self._response_cache[key] = (time.monotonic(), content)
 
     # ------------------------------------------------------------------
     # Rate limiting
@@ -196,15 +257,37 @@ class ZenControlClient:
         path: str,
         params: dict[str, Any] | None = None,
     ) -> httpx.Response:
-        """Convenience method for GET requests."""
-        return await self.request("GET", path, params=params)
+        """Convenience method for GET requests with per-token response caching.
+
+        Responses are cached for ``cache_ttl`` seconds, keyed by a hash of the
+        current user's token so that different users never share cache entries.
+        Set ``cache_ttl=0`` at construction time to disable caching (useful in
+        tests).
+        """
+        if self._cache_ttl > 0:
+            token = await self._get_token()
+            key = self._cache_key(token, path, params)
+            cached = self._cache_get(key)
+            if cached is not None:
+                logger.debug("Cache hit: GET %s", path)
+                return httpx.Response(200, content=cached)
+
+        response = await self._request_with_retry("GET", path, params=params)
+
+        if self._cache_ttl > 0 and response.is_success:
+            # Re-fetch token in case it was refreshed during the request (401 retry).
+            token = await self._get_token()
+            key = self._cache_key(token, path, params)
+            self._cache_put(key, response.content)
+
+        return response
 
     async def post(
         self,
         path: str,
         json: dict[str, Any] | None = None,
     ) -> httpx.Response:
-        """Convenience method for POST requests."""
+        """Convenience method for POST requests (never cached)."""
         return await self.request("POST", path, json=json)
 
     # ------------------------------------------------------------------

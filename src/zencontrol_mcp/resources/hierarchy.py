@@ -128,25 +128,19 @@ def register(mcp: FastMCP) -> None:
         lines.append(f"UUID: {site.site_id}")
         if site.tag:
             lines.append(f"Tag: {site.tag}")
-            lines.append(
-                f"Portal: https://cloud.zencontrol.com/sites/{site.tag}/"
-            )
+            lines.append(f"Portal: https://cloud.zencontrol.com/sites/{site.tag}/")
         if site.building_size is not None:
             lines.append(f"Building size: {site.building_size}")
 
         lines.append(f"\nFloors ({len(floors)}):")
         for floor in floors:
-            lines.append(
-                f"  • {floor.label or 'Unlabelled'}  (ID: {floor.floor_id})"
-            )
+            lines.append(f"  • {floor.label or 'Unlabelled'}  (ID: {floor.floor_id})")
         if not floors:
             lines.append("  (none)")
 
         lines.append(f"\nTenancies ({len(tenancies)}):")
         for t in tenancies:
-            lines.append(
-                f"  • {t.label or 'Unlabelled'}  (ID: {t.tenancy_id})"
-            )
+            lines.append(f"  • {t.label or 'Unlabelled'}  (ID: {t.tenancy_id})")
         if not tenancies:
             lines.append("  (none)")
 
@@ -281,9 +275,7 @@ def register(mcp: FastMCP) -> None:
         lines = [f"Groups for site '{display}' ({len(groups)}):\n"]
         for group in groups:
             label = (
-                group.label.value
-                if group.label and group.label.value
-                else "Unlabelled"
+                group.label.value if group.label and group.label.value else "Unlabelled"
             )
             target_id = "N/A"
             if group.group_id and group.group_id.gateway_id:
@@ -296,8 +288,7 @@ def register(mcp: FastMCP) -> None:
         "zencontrol://sites/{site_id}/gateways",
         name="ZenControl Site Gateways",
         description=(
-            "DALI gateway list for a site. "
-            "{site_id} accepts a UUID, tag, or name."
+            "DALI gateway list for a site. {site_id} accepts a UUID, tag, or name."
         ),
         mime_type="text/plain",
     )
@@ -410,8 +401,7 @@ def register(mcp: FastMCP) -> None:
             )
             number = (
                 profile.profile_number.value
-                if profile.profile_number
-                and profile.profile_number.value is not None
+                if profile.profile_number and profile.profile_number.value is not None
                 else "N/A"
             )
             status = (

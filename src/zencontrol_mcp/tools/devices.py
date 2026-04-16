@@ -42,7 +42,7 @@ def register(mcp: FastMCP) -> None:
         if error := get_scope_constraint(ctx).validate_scope(scope_type, resolved_id):
             return error
 
-        groups = await api.list_groups(scope_type, resolved_id)
+        groups = await api.list_groups(scope_type, resolved_id, permission_group="ALL")
 
         if not groups:
             return f"No groups found in {scope_type} {resolved_id}."
@@ -67,7 +67,23 @@ def register(mcp: FastMCP) -> None:
                 gw = group.group_id.gateway_id
                 target_id = f"{gw.gtin}-{gw.serial}-{group.group_id.group_number}"
 
-            lines.append(f"• {label}")
+            # Determine lighting permission from permissionGroup=ALL response
+            perm_tag = ""
+            if group.permissions and group.permissions.group:
+                lighting = group.permissions.group.lighting
+                aggregate = group.permissions.group.aggregate
+                can_control = (lighting and lighting.write) or (
+                    aggregate and aggregate.write
+                )
+                can_read = (lighting and lighting.read) or (
+                    aggregate and aggregate.read
+                )
+                if can_control:
+                    perm_tag = "  [can control]"
+                elif can_read:
+                    perm_tag = "  [view only]"
+
+            lines.append(f"• {label}{perm_tag}")
             lines.append(f"  Target ID: {target_id}")
             lines.append(f"  Type: {group_type}  |  Status: {status}")
             lines.append("")
