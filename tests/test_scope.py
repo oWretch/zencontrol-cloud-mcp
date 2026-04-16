@@ -394,6 +394,15 @@ class TestScopeEnforcementInTools:
             api_mock.send_command = AsyncMock(return_value=None)
             api_mock.list_sites = AsyncMock(return_value=[])
             api_mock.list_groups = AsyncMock(return_value=[])
+
+            # resolve_site_identifier returns whatever scope_id was passed
+            # so the scope validation sees the raw value
+            async def _resolve(identifier):
+                site = MagicMock()
+                site.site_id = identifier
+                return site
+
+            api_mock.resolve_site_identifier = _resolve
         scope = ScopeConstraint(site_id=scope_site)
         ctx = MagicMock()
         ctx.lifespan_context = {"api": api_mock, "scope": scope}

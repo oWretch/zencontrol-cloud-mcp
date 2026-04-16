@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastmcp import Context, FastMCP
 
 from zencontrol_mcp.api.rest import ZenControlAPI
-from zencontrol_mcp.tools._helpers import get_scope_constraint
+from zencontrol_mcp.tools._helpers import get_scope_constraint, resolve_scope_id
 
 
 def _format_dali_id(dali_id: object) -> str:
@@ -29,20 +29,26 @@ def register(mcp: FastMCP) -> None:
 
         Args:
             scope_type: The type of parent scope. One of: site, floor, map, control_system, gateway.
-            scope_id: The ID of the parent scope (UUID for most, 'gtin-serial' for gateway).
+            scope_id: The ID of the parent scope. When scope_type is 'site', accepts a
+                UUID, tag (e.g. 'brown-home'), or name.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
 
-        if error := get_scope_constraint(ctx).validate_scope(scope_type, scope_id):
+        try:
+            resolved_id = await resolve_scope_id(api, scope_type, scope_id)
+        except ValueError as exc:
+            return str(exc)
+
+        if error := get_scope_constraint(ctx).validate_scope(scope_type, resolved_id):
             return error
 
-        groups = await api.list_groups(scope_type, scope_id)
+        groups = await api.list_groups(scope_type, resolved_id)
 
         if not groups:
-            return f"No groups found in {scope_type} {scope_id}."
+            return f"No groups found in {scope_type} {resolved_id}."
 
         lines: list[str] = [
-            f"Found {len(groups)} group(s) in {scope_type} {scope_id}:\n"
+            f"Found {len(groups)} group(s) in {scope_type} {resolved_id}:\n"
         ]
         for group in groups:
             label = (
@@ -81,20 +87,26 @@ def register(mcp: FastMCP) -> None:
 
         Args:
             scope_type: The type of parent scope. One of: site, floor, map, control_system, gateway.
-            scope_id: The ID of the parent scope.
+            scope_id: The ID of the parent scope. When scope_type is 'site', accepts a
+                UUID, tag (e.g. 'brown-home'), or name.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
 
-        if error := get_scope_constraint(ctx).validate_scope(scope_type, scope_id):
+        try:
+            resolved_id = await resolve_scope_id(api, scope_type, scope_id)
+        except ValueError as exc:
+            return str(exc)
+
+        if error := get_scope_constraint(ctx).validate_scope(scope_type, resolved_id):
             return error
 
-        devices = await api.list_devices(scope_type, scope_id)
+        devices = await api.list_devices(scope_type, resolved_id)
 
         if not devices:
-            return f"No devices found in {scope_type} {scope_id}."
+            return f"No devices found in {scope_type} {resolved_id}."
 
         lines: list[str] = [
-            f"Found {len(devices)} device(s) in {scope_type} {scope_id}:\n"
+            f"Found {len(devices)} device(s) in {scope_type} {resolved_id}:\n"
         ]
         for device in devices:
             label = (

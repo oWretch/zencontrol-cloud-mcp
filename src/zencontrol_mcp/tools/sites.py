@@ -65,20 +65,26 @@ def register(mcp: FastMCP) -> None:
         Use this to discover the structure of a site before controlling devices.
 
         Args:
-            site_id: The UUID of the site to query.
+            site_id: The UUID, tag (e.g. 'brown-home'), or name of the site to query.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
 
-        if error := get_scope_constraint(ctx).validate_site(site_id):
+        try:
+            resolved_site = await api.resolve_site_identifier(site_id)
+        except ValueError as exc:
+            return str(exc)
+        resolved_id = resolved_site.site_id or site_id
+
+        if error := get_scope_constraint(ctx).validate_site(resolved_id):
             return error
 
         site, (floors, tenancies, zones, gateways) = await asyncio.gather(
-            api.get_site(site_id),
+            api.get_site(resolved_id),
             asyncio.gather(
-                api.list_floors(site_id),
-                api.list_tenancies(site_id),
-                api.list_zones(site_id),
-                api.list_gateways("site", site_id),
+                api.list_floors(resolved_id),
+                api.list_tenancies(resolved_id),
+                api.list_zones(resolved_id),
+                api.list_gateways("site", resolved_id),
             ),
         )
 

@@ -15,7 +15,7 @@ from zencontrol_mcp.tools.control import _ACTION_MAP, _pct_to_dali
 # ---------------------------------------------------------------------------
 
 
-def _make_mock_context(api_mock=None):
+def _make_mock_context(api_mock=None, site_id: str = "some-id"):
     """Build a mock MCP Context with api in lifespan_context."""
     if api_mock is None:
         api_mock = MagicMock()
@@ -23,6 +23,9 @@ def _make_mock_context(api_mock=None):
         api_mock.list_sites = AsyncMock(return_value=[])
         api_mock.list_groups = AsyncMock(return_value=[])
         api_mock.list_devices = AsyncMock(return_value=[])
+        resolved_site = MagicMock()
+        resolved_site.site_id = site_id
+        api_mock.resolve_site_identifier = AsyncMock(return_value=resolved_site)
     ctx = MagicMock()
     ctx.lifespan_context = {"api": api_mock, "scope": ScopeConstraint()}
     return ctx, api_mock

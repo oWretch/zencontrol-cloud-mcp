@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from zencontrol_mcp.api.live import LiveClient
+from zencontrol_mcp.api.live import LiveAPIError, LiveClient
 from zencontrol_mcp.scope import ScopeConstraint
 from zencontrol_mcp.tools.live import _validate_duration
 
@@ -18,9 +18,12 @@ from zencontrol_mcp.tools.live import _validate_duration
 # ---------------------------------------------------------------------------
 
 
-def _make_live_context(live_client: LiveClient):
+def _make_live_context(live_client: LiveClient, site_id: str = "site-1"):
     """Build a mock MCP Context with a LiveClient in lifespan_context."""
     api_mock = MagicMock()
+    resolved_site = MagicMock()
+    resolved_site.site_id = site_id
+    api_mock.resolve_site_identifier = AsyncMock(return_value=resolved_site)
     ctx = MagicMock()
     ctx.lifespan_context = {
         "api": api_mock,
@@ -179,7 +182,7 @@ class TestLiveClientSubscribeOnce:
 
         error_msg = _make_ws_message(
             "ERROR",
-            error={"code": 403, "message": "Forbidden"},
+            error={"code": "FORBIDDEN", "message": "Forbidden"},
         )
 
         mock_ws = AsyncMock()
@@ -188,12 +191,38 @@ class TestLiveClientSubscribeOnce:
         mock_ws.__aexit__ = AsyncMock(return_value=False)
 
         with patch("zencontrol_mcp.api.live.websockets.connect", return_value=mock_ws):
-            with pytest.raises(RuntimeError, match="Forbidden"):
+            with pytest.raises(LiveAPIError, match="Forbidden") as exc_info:
                 await client.subscribe_once(
                     method="event.ecg.arc-level",
                     content={"siteId": "s"},
                     duration=0.1,
                 )
+        assert exc_info.value.code == "FORBIDDEN"
+        assert exc_info.value.is_access_error
+
+    async def test_raises_on_error_during_event_collection(self):
+        token_factory = AsyncMock(return_value="test-token")
+        client = LiveClient(token_factory=token_factory)
+
+        stream_error_msg = _make_ws_message(
+            "ERROR",
+            error={"code": "STREAM_ERROR", "message": "Stream interrupted"},
+        )
+
+        mock_ws = AsyncMock()
+        mock_ws.recv = self._make_recv([_make_ws_message("START"), stream_error_msg])
+        mock_ws.__aenter__ = AsyncMock(return_value=mock_ws)
+        mock_ws.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("zencontrol_mcp.api.live.websockets.connect", return_value=mock_ws):
+            with pytest.raises(LiveAPIError, match="Stream interrupted") as exc_info:
+                await client.subscribe_once(
+                    method="event.group.arc-level",
+                    content={"siteId": "s"},
+                    duration=30.0,
+                )
+        assert exc_info.value.code == "STREAM_ERROR"
+        assert not exc_info.value.is_access_error
 
     async def test_stops_on_end_message(self):
         token_factory = AsyncMock(return_value="test-token")
@@ -496,3 +525,70 @@ class TestGetSystemVariables:
         result = await self._call(ctx, site_id="site-1", duration=-5)
         assert "between 1 and 30" in result
         live.subscribe_once.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# LiveAPIError handling in tools
+# ---------------------------------------------------------------------------
+
+
+class TestLiveAPIErrorHandling:
+    """Test that live tools surface LiveAPIError correctly."""
+
+    @staticmethod
+    async def _call_tool(tool_name: str, ctx, **kwargs):
+        from fastmcp import FastMCP
+
+        from zencontrol_mcp.tools.live import register
+
+        mcp = FastMCP("test")
+        register(mcp)
+        tool_fn = await _get_tool_fn(mcp, tool_name)
+        return await tool_fn(ctx=ctx, **kwargs)
+
+    @pytest.mark.asyncio
+    async def test_access_error_surfaces_helpful_message(self):
+        live = MagicMock(spec=LiveClient)
+        live.subscribe_once = AsyncMock(
+            side_effect=LiveAPIError("UNAUTHORIZED: no access", code="UNAUTHORIZED")
+        )
+        ctx = _make_live_context(live)
+
+        result = await self._call_tool("get_live_light_levels", ctx, site_id="site-1")
+        assert "access denied" in result.lower()
+        assert "ZenControl support" in result
+
+    @pytest.mark.asyncio
+    async def test_stream_error_surfaces_message(self):
+        live = MagicMock(spec=LiveClient)
+        live.subscribe_once = AsyncMock(
+            side_effect=LiveAPIError("STREAM_ERROR: bad thing", code="STREAM_ERROR")
+        )
+        ctx = _make_live_context(live)
+
+        result = await self._call_tool("get_sensor_readings", ctx, site_id="site-1")
+        assert "Live API error" in result
+        assert "bad thing" in result
+
+    @pytest.mark.asyncio
+    async def test_site_tag_resolves_for_live_tool(self):
+        live = MagicMock(spec=LiveClient)
+        live.subscribe_once = AsyncMock(return_value=[])
+
+        api_mock = MagicMock()
+        resolved = MagicMock()
+        resolved.site_id = "real-uuid-123"
+        api_mock.resolve_site_identifier = AsyncMock(return_value=resolved)
+
+        ctx = MagicMock()
+        ctx.lifespan_context = {
+            "api": api_mock,
+            "live": live,
+            "scope": ScopeConstraint(),
+        }
+
+        await self._call_tool("get_system_variables", ctx, site_id="my-site-tag")
+        api_mock.resolve_site_identifier.assert_called_once_with("my-site-tag")
+        live.subscribe_once.assert_called_once()
+        call_kwargs = live.subscribe_once.call_args
+        assert call_kwargs.kwargs["content"]["siteId"] == "real-uuid-123"

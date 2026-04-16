@@ -4,8 +4,14 @@ from __future__ import annotations
 
 from fastmcp import Context, FastMCP
 
-from zencontrol_mcp.api.live import LiveClient
+from zencontrol_mcp.api.live import LiveAPIError, LiveClient
+from zencontrol_mcp.api.rest import ZenControlAPI
 from zencontrol_mcp.tools._helpers import get_scope_constraint
+
+_LIVE_ACCESS_HINT = (
+    "The Live API requires separate activation for your ZenControl client. "
+    "Contact ZenControl support to request access."
+)
 
 
 def _format_gateway_id(gateway_id: dict) -> str:
@@ -35,8 +41,11 @@ def register(mcp: FastMCP) -> None:
         Connects to the ZenControl Live API briefly to capture current
         brightness levels for groups or individual ECGs.
 
+        Requires the Live API to be enabled for this client. Contact
+        ZenControl support if live tools return an access error.
+
         Args:
-            site_id: The UUID of the site to monitor.
+            site_id: The UUID, tag (e.g. 'brown-home'), or name of the site.
             duration: How many seconds to listen for updates (1-30, default 5).
             target: What to monitor: 'groups' for group levels, 'ecgs' for individual gear levels.
         """
@@ -46,7 +55,14 @@ def register(mcp: FastMCP) -> None:
         if target not in ("groups", "ecgs"):
             return "Target must be 'groups' or 'ecgs'."
 
-        if error := get_scope_constraint(ctx).validate_site(site_id):
+        api: ZenControlAPI = ctx.lifespan_context["api"]
+        try:
+            site = await api.resolve_site_identifier(site_id)
+        except ValueError as exc:
+            return str(exc)
+        resolved_id = site.site_id or site_id
+
+        if error := get_scope_constraint(ctx).validate_site(resolved_id):
             return error
 
         live: LiveClient = ctx.lifespan_context["live"]
@@ -54,21 +70,26 @@ def register(mcp: FastMCP) -> None:
             "event.group.arc-level" if target == "groups" else "event.ecg.arc-level"
         )
 
-        events = await live.subscribe_once(
-            method=method,
-            content={"siteId": site_id},
-            duration=float(duration),
-        )
+        try:
+            events = await live.subscribe_once(
+                method=method,
+                content={"siteId": resolved_id},
+                duration=float(duration),
+            )
+        except LiveAPIError as exc:
+            if exc.is_access_error:
+                return f"Live API access denied. {_LIVE_ACCESS_HINT} (Error: {exc})"
+            return f"Live API error: {exc}"
 
         if not events:
             return (
-                f"No {target} light-level events received from site {site_id} "
+                f"No {target} light-level events received from site {resolved_id} "
                 f"in {duration}s. The site may have no active gateways or "
                 f"no lights are currently changing."
             )
 
         lines: list[str] = [
-            f"Live {target} light levels from site {site_id} "
+            f"Live {target} light levels from site {resolved_id} "
             f"({len(events)} event(s) in {duration}s):\n"
         ]
 
@@ -110,8 +131,11 @@ def register(mcp: FastMCP) -> None:
         Monitors light sensors (lux) or occupancy sensors (movement) in
         real-time.
 
+        Requires the Live API to be enabled for this client. Contact
+        ZenControl support if live tools return an access error.
+
         Args:
-            site_id: The UUID of the site to monitor.
+            site_id: The UUID, tag (e.g. 'brown-home'), or name of the site.
             sensor_type: Type of sensor: 'light' for lux readings, 'occupancy' for movement detection.
             duration: How many seconds to listen for updates (1-30, default 5).
         """
@@ -121,7 +145,14 @@ def register(mcp: FastMCP) -> None:
         if sensor_type not in ("light", "occupancy"):
             return "Sensor type must be 'light' or 'occupancy'."
 
-        if error := get_scope_constraint(ctx).validate_site(site_id):
+        api: ZenControlAPI = ctx.lifespan_context["api"]
+        try:
+            site = await api.resolve_site_identifier(site_id)
+        except ValueError as exc:
+            return str(exc)
+        resolved_id = site.site_id or site_id
+
+        if error := get_scope_constraint(ctx).validate_site(resolved_id):
             return error
 
         live: LiveClient = ctx.lifespan_context["live"]
@@ -131,20 +162,25 @@ def register(mcp: FastMCP) -> None:
             else "event.occupancy-sensor.movement-detected"
         )
 
-        events = await live.subscribe_once(
-            method=method,
-            content={"siteId": site_id},
-            duration=float(duration),
-        )
+        try:
+            events = await live.subscribe_once(
+                method=method,
+                content={"siteId": resolved_id},
+                duration=float(duration),
+            )
+        except LiveAPIError as exc:
+            if exc.is_access_error:
+                return f"Live API access denied. {_LIVE_ACCESS_HINT} (Error: {exc})"
+            return f"Live API error: {exc}"
 
         if not events:
             return (
-                f"No {sensor_type} sensor events received from site {site_id} "
+                f"No {sensor_type} sensor events received from site {resolved_id} "
                 f"in {duration}s."
             )
 
         lines: list[str] = [
-            f"Live {sensor_type} sensor readings from site {site_id} "
+            f"Live {sensor_type} sensor readings from site {resolved_id} "
             f"({len(events)} event(s) in {duration}s):\n"
         ]
 
@@ -191,32 +227,47 @@ def register(mcp: FastMCP) -> None:
         automation logic and integrations. The actual value is calculated
         as ``signedValue * 10^(magnitude - 127)``.
 
+        Requires the Live API to be enabled for this client. Contact
+        ZenControl support if live tools return an access error.
+
         Args:
-            site_id: The UUID of the site to monitor.
+            site_id: The UUID, tag (e.g. 'brown-home'), or name of the site.
             duration: How many seconds to listen for updates (1-30, default 5).
         """
         if error := _validate_duration(duration):
             return error
 
-        if error := get_scope_constraint(ctx).validate_site(site_id):
+        api: ZenControlAPI = ctx.lifespan_context["api"]
+        try:
+            site = await api.resolve_site_identifier(site_id)
+        except ValueError as exc:
+            return str(exc)
+        resolved_id = site.site_id or site_id
+
+        if error := get_scope_constraint(ctx).validate_site(resolved_id):
             return error
 
         live: LiveClient = ctx.lifespan_context["live"]
 
-        events = await live.subscribe_once(
-            method="event.system-variable.change",
-            content={"siteId": site_id},
-            duration=float(duration),
-        )
+        try:
+            events = await live.subscribe_once(
+                method="event.system-variable.change",
+                content={"siteId": resolved_id},
+                duration=float(duration),
+            )
+        except LiveAPIError as exc:
+            if exc.is_access_error:
+                return f"Live API access denied. {_LIVE_ACCESS_HINT} (Error: {exc})"
+            return f"Live API error: {exc}"
 
         if not events:
             return (
-                f"No system variable events received from site {site_id} "
+                f"No system variable events received from site {resolved_id} "
                 f"in {duration}s."
             )
 
         lines: list[str] = [
-            f"Live system variable changes from site {site_id} "
+            f"Live system variable changes from site {resolved_id} "
             f"({len(events)} event(s) in {duration}s):\n"
         ]
 

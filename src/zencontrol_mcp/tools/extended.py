@@ -6,7 +6,11 @@ from fastmcp import Context, FastMCP
 
 from zencontrol_mcp.api.rest import ZenControlAPI
 from zencontrol_mcp.models.schemas import DaliCommand, DaliCommandType
-from zencontrol_mcp.tools._helpers import confirm_broad_command, get_scope_constraint
+from zencontrol_mcp.tools._helpers import (
+    confirm_broad_command,
+    get_scope_constraint,
+    resolve_scope_id,
+)
 
 
 def _format_command_result(
@@ -41,20 +45,26 @@ def register(mcp: FastMCP) -> None:
 
         Args:
             scope_type: Parent scope type. One of: site, floor, map, control_system.
-            scope_id: The ID of the parent scope.
+            scope_id: The ID of the parent scope. When scope_type is 'site', accepts a
+                UUID, tag (e.g. 'brown-home'), or name.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
 
-        if error := get_scope_constraint(ctx).validate_scope(scope_type, scope_id):
+        try:
+            resolved_id = await resolve_scope_id(api, scope_type, scope_id)
+        except ValueError as exc:
+            return str(exc)
+
+        if error := get_scope_constraint(ctx).validate_scope(scope_type, resolved_id):
             return error
 
-        gateways = await api.list_gateways(scope_type, scope_id)
+        gateways = await api.list_gateways(scope_type, resolved_id)
 
         if not gateways:
-            return f"No gateways found in {scope_type} {scope_id}."
+            return f"No gateways found in {scope_type} {resolved_id}."
 
         lines: list[str] = [
-            f"Found {len(gateways)} gateway(s) in {scope_type} {scope_id}:\n"
+            f"Found {len(gateways)} gateway(s) in {scope_type} {resolved_id}:\n"
         ]
         for gw in gateways:
             label = gw.label.value if gw.label and gw.label.value else "Unlabelled"
@@ -89,20 +99,26 @@ def register(mcp: FastMCP) -> None:
 
         Args:
             scope_type: Parent scope type. One of: site, floor, map, control_system, gateway.
-            scope_id: The ID of the parent scope.
+            scope_id: The ID of the parent scope. When scope_type is 'site', accepts a
+                UUID, tag (e.g. 'brown-home'), or name.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
 
-        if error := get_scope_constraint(ctx).validate_scope(scope_type, scope_id):
+        try:
+            resolved_id = await resolve_scope_id(api, scope_type, scope_id)
+        except ValueError as exc:
+            return str(exc)
+
+        if error := get_scope_constraint(ctx).validate_scope(scope_type, resolved_id):
             return error
 
-        locations = await api.list_device_locations(scope_type, scope_id)
+        locations = await api.list_device_locations(scope_type, resolved_id)
 
         if not locations:
-            return f"No device locations found in {scope_type} {scope_id}."
+            return f"No device locations found in {scope_type} {resolved_id}."
 
         lines: list[str] = [
-            f"Found {len(locations)} device location(s) in {scope_type} {scope_id}:\n"
+            f"Found {len(locations)} device location(s) in {scope_type} {resolved_id}:\n"
         ]
         for loc in locations:
             label = loc.label.value if loc.label and loc.label.value else "Unlabelled"
@@ -130,19 +146,25 @@ def register(mcp: FastMCP) -> None:
         Scenes are preconfigured lighting states that can be recalled with control_light.
 
         Args:
-            site_id: The UUID of the site.
+            site_id: The UUID, tag (e.g. 'brown-home'), or name of the site.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
 
-        if error := get_scope_constraint(ctx).validate_site(site_id):
+        try:
+            site = await api.resolve_site_identifier(site_id)
+        except ValueError as exc:
+            return str(exc)
+        resolved_id = site.site_id or site_id
+
+        if error := get_scope_constraint(ctx).validate_site(resolved_id):
             return error
 
-        scenes = await api.list_scenes(site_id)
+        scenes = await api.list_scenes(resolved_id)
 
         if not scenes:
-            return f"No scenes found for site {site_id}."
+            return f"No scenes found for site {resolved_id}."
 
-        lines: list[str] = [f"Found {len(scenes)} scene(s) for site {site_id}:\n"]
+        lines: list[str] = [f"Found {len(scenes)} scene(s) for site {resolved_id}:\n"]
         for scene in scenes:
             label = scene.label or "Unlabelled"
             number = scene.scene_number if scene.scene_number is not None else "N/A"
@@ -158,19 +180,27 @@ def register(mcp: FastMCP) -> None:
         Use set_profile to activate a profile.
 
         Args:
-            site_id: The UUID of the site.
+            site_id: The UUID, tag (e.g. 'brown-home'), or name of the site.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
 
-        if error := get_scope_constraint(ctx).validate_site(site_id):
+        try:
+            site = await api.resolve_site_identifier(site_id)
+        except ValueError as exc:
+            return str(exc)
+        resolved_id = site.site_id or site_id
+
+        if error := get_scope_constraint(ctx).validate_site(resolved_id):
             return error
 
-        profiles = await api.list_profiles(site_id)
+        profiles = await api.list_profiles(resolved_id)
 
         if not profiles:
-            return f"No profiles found for site {site_id}."
+            return f"No profiles found for site {resolved_id}."
 
-        lines: list[str] = [f"Found {len(profiles)} profile(s) for site {site_id}:\n"]
+        lines: list[str] = [
+            f"Found {len(profiles)} profile(s) for site {resolved_id}:\n"
+        ]
         for profile in profiles:
             label = (
                 profile.label.value

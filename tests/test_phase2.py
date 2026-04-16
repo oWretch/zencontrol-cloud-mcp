@@ -24,11 +24,14 @@ from zencontrol_mcp.scope import ScopeConstraint
 # ---------------------------------------------------------------------------
 
 
-def _make_mock_context(api_mock=None):
+def _make_mock_context(api_mock=None, site_id: str = "site-1"):
     """Build a mock MCP Context with api in lifespan_context."""
     if api_mock is None:
         api_mock = MagicMock()
         api_mock.send_command = AsyncMock(return_value=None)
+        resolved_site = MagicMock()
+        resolved_site.site_id = site_id
+        api_mock.resolve_site_identifier = AsyncMock(return_value=resolved_site)
     ctx = MagicMock()
     ctx.lifespan_context = {"api": api_mock, "scope": ScopeConstraint()}
     return ctx, api_mock

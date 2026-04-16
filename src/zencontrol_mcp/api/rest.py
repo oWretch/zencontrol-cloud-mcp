@@ -140,13 +140,14 @@ class ZenControlAPI:
         Accepts either:
         - A site UUID (e.g. ``"3b5b2c02-0e43-423f-9719-758ab3fcb456"``)
         - A site tag matching the portal URL slug (e.g. ``"brown-home"``)
-        - A site name (e.g. ``"Brown Home"``) — case-insensitive fallback
+        - A site name (e.g. ``"Brown Home"``) — case-insensitive, fails if ambiguous
 
         Args:
             identifier: UUID, tag, or name of the site.
 
         Raises:
-            ValueError: If no matching site is found.
+            ValueError: If no matching site is found, or if a name matches
+                multiple sites (ambiguous — use the tag or UUID instead).
         """
         import re
 
@@ -160,15 +161,25 @@ class ZenControlAPI:
 
         # Tag / name lookup — list all sites and search
         sites = await self.list_sites()
-        # Exact tag match first (tags are lowercase slugs, portal-style)
+
+        # Exact tag match first (tags are unique lowercase slugs, portal-style)
         for site in sites:
             if site.tag and site.tag == identifier:
                 return site
+
         # Case-insensitive name match as fallback
         identifier_lower = identifier.lower()
-        for site in sites:
-            if site.name and site.name.lower() == identifier_lower:
-                return site
+        name_matches = [
+            s for s in sites if s.name and s.name.lower() == identifier_lower
+        ]
+        if len(name_matches) == 1:
+            return name_matches[0]
+        if len(name_matches) > 1:
+            tags = ", ".join(s.tag or str(s.site_id) for s in name_matches)
+            raise ValueError(
+                f"Multiple sites match the name {identifier!r}: {tags}. "
+                f"Use a tag or UUID to identify the site unambiguously."
+            )
         raise ValueError(
             f"No site found matching {identifier!r}. "
             f"Available sites: {', '.join(s.tag or s.name or str(s.site_id) for s in sites)}"

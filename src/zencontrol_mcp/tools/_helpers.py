@@ -10,6 +10,8 @@ from fastmcp.server.elicitation import AcceptedElicitation
 if TYPE_CHECKING:
     from fastmcp import Context
 
+    from zencontrol_mcp.api.rest import ZenControlAPI
+
 from zencontrol_mcp.scope import ScopeConstraint
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,35 @@ _BROAD_SCOPES = frozenset({"site", "tenancy", "floor"})
 def get_scope_constraint(ctx: Context) -> ScopeConstraint:
     """Get the ScopeConstraint from the tool context."""
     return ctx.lifespan_context["scope"]
+
+
+async def resolve_scope_id(
+    api: ZenControlAPI,
+    scope_type: str,
+    scope_id: str,
+) -> str:
+    """Resolve a scope identifier to a canonical UUID.
+
+    For ``scope_type="site"``, the ``scope_id`` may be a UUID, tag (e.g.
+    ``"brown-home"``), or site name.  For all other scope types the value
+    is returned unchanged (floors, gateways, maps etc. have no tag system).
+
+    Args:
+        api: The REST API client.
+        scope_type: One of ``"site"``, ``"floor"``, ``"map"``, etc.
+        scope_id: The scope identifier to resolve.
+
+    Returns:
+        The canonical UUID string for the scope.
+
+    Raises:
+        ValueError: If ``scope_type="site"`` and no matching site is found,
+            or if a name is ambiguous.
+    """
+    if scope_type != "site":
+        return scope_id
+    site = await api.resolve_site_identifier(scope_id)
+    return site.site_id or scope_id
 
 
 async def confirm_broad_command(
