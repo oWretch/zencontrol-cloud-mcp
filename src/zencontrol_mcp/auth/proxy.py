@@ -1,8 +1,33 @@
-"""OAuthProxy provider for ZenControl in HTTP/StreamableHTTP transport mode.
+"""OAuth resource-server provider for ZenControl in HTTP/StreamableHTTP transport mode.
 
-Uses FastMCP's :class:`RemoteAuthProvider` to delegate authentication to
-the ZenControl authorization server while validating opaque access tokens
-by calling the ZenControl API.
+This module implements the server side of the OAuth 2.0 resource-server pattern
+for multi-user HTTP deployments.  The MCP server itself never handles user
+credentials — authentication is delegated entirely to ZenControl's OAuth server.
+
+Authentication flow
+-------------------
+1. **Discovery**: The MCP client calls ``/.well-known/oauth-protected-resource``
+   on this server.  The response advertises ZenControl's authorization server
+   (``https://login.zencontrol.com/oauth/authorize``) as the place to obtain
+   tokens.
+
+2. **Token acquisition** (outside this server): The MCP client directs the user
+   to ZenControl's authorization server, which handles login and issues an
+   opaque access token.  This server is not involved and never sees the user's
+   ZenControl password or OAuth client secret.
+
+3. **API calls**: The MCP client sends requests to this server with an
+   ``Authorization: Bearer <token>`` header.
+
+4. **Token validation** (:class:`ZenControlTokenVerifier`): For each request,
+   this server validates the bearer token by calling the ZenControl REST API
+   (``GET /v2/sites``).  A 200 response means the token is valid; a 401 means
+   it is not.  ZenControl issues opaque (non-JWT) tokens, so there is no local
+   signature verification — a live API call is the only validation method.
+
+Note: TLS (HTTPS) is required for production deployments.  Without it, bearer
+tokens are transmitted in cleartext.  Set ``ZENCONTROL_PUBLIC_URL`` to the
+public HTTPS URL of this server.
 """
 
 from __future__ import annotations

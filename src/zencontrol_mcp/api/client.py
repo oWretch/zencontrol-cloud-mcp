@@ -226,7 +226,8 @@ class ZenControlClient:
             return response
 
         # Retries exhausted — return the last response for the caller to handle
-        assert response is not None  # noqa: S101
+        if response is None:
+            raise RuntimeError("All retries exhausted without receiving a response")
         return response
 
     async def request(
@@ -270,7 +271,9 @@ class ZenControlClient:
             cached = self._cache_get(key)
             if cached is not None:
                 logger.debug("Cache hit: GET %s", path)
-                return httpx.Response(200, content=cached)
+                cached_response = httpx.Response(200, content=cached)
+                cached_response.request = httpx.Request("GET", f"{self._base_url}{path}")
+                return cached_response
 
         response = await self._request_with_retry("GET", path, params=params)
 

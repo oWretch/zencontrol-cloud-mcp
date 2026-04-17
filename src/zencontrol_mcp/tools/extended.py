@@ -284,6 +284,16 @@ def register(mcp: FastMCP) -> None:
                 return error
         else:
             resolved_id = scope_id
+            # Tenancy scope cannot be validated against the site constraint without
+            # an API lookup.  If a site constraint is active, block tenancy scope
+            # to prevent accidental cross-site queries.
+            constraint = get_scope_constraint(ctx)
+            if constraint.site_id:
+                return (
+                    f"Cannot query health for {scope_type} scope when a site "
+                    f"constraint is active.  Use scope_type='site' with the "
+                    f"constrained site ID instead."
+                )
 
         # Use last 7 days as time window to catch recent readings.
         now_ms = int(time.time() * 1000)

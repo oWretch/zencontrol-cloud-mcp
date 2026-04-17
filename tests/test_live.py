@@ -278,6 +278,30 @@ class TestLiveClientSubscribeOnce:
         assert unsub_msg["type"] == "UNSUBSCRIBE"
         assert unsub_msg["id"] == 1
 
+    async def test_maps_invalid_status_403_to_forbidden(self):
+        import websockets.exceptions
+
+        token_factory = AsyncMock(return_value="test-token")
+        client = LiveClient(token_factory=token_factory)
+
+        response = MagicMock()
+        response.status_code = 403
+        handshake_error = websockets.exceptions.InvalidStatus(response)
+
+        with patch(
+            "zencontrol_mcp.api.live.websockets.connect",
+            side_effect=handshake_error,
+        ):
+            with pytest.raises(LiveAPIError, match="HTTP 403") as exc_info:
+                await client.subscribe_once(
+                    method="event.ecg.arc-level",
+                    content={"siteId": "s"},
+                    duration=0.1,
+                )
+
+        assert exc_info.value.code == "FORBIDDEN"
+        assert exc_info.value.is_access_error
+
 
 # ---------------------------------------------------------------------------
 # get_live_light_levels tool

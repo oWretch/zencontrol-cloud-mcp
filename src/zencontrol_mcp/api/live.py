@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -14,6 +15,30 @@ import websockets.exceptions
 logger = logging.getLogger(__name__)
 
 LIVE_WS_URL = "wss://api.zencontrol.com/live/v1/events"
+
+
+def _extract_handshake_status(exc: Exception) -> int | None:
+    """Extract HTTP status code from a websocket handshake exception.
+
+    Different websockets versions expose status in different places:
+    - legacy: ``exc.status_code``
+    - modern: ``exc.response.status_code`` (InvalidStatus)
+    """
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int):
+        return status
+
+    response = getattr(exc, "response", None)
+    response_status = getattr(response, "status_code", None)
+    if isinstance(response_status, int):
+        return response_status
+
+    # Fallback for unknown exception shapes.
+    match = re.search(r"HTTP\s+(\d{3})", str(exc))
+    if match:
+        return int(match.group(1))
+
+    return None
 
 
 class LiveAPIError(Exception):
@@ -73,6 +98,10 @@ class LiveClient:
                 or if the WebSocket handshake is rejected (e.g. 401/403).
         """
         token = await self._token_factory()
+        # ZenControl Live API requires the access token as a URL query parameter.
+        # This is a vendor-mandated API design — the token cannot be passed via
+        # an Authorization header. See: https://file.zencontrol.com/liveapi/openapi.json
+        # Tokens are short-lived and rotate automatically, which limits exposure.
         url = f"{LIVE_WS_URL}?accessToken={token}"
 
         events: list[dict[str, Any]] = []
@@ -155,7 +184,7 @@ class LiveClient:
 
         except websockets.exceptions.InvalidHandshake as exc:
             # HTTP-level rejection (e.g. 401 Unauthorized, 403 Forbidden)
-            status = getattr(exc, "status_code", None)
+            status = _extract_handshake_status(exc)
             code = (
                 "UNAUTHORIZED"
                 if status == 401
@@ -163,8 +192,9 @@ class LiveClient:
                 if status == 403
                 else None
             )
+            status_text = str(status) if status is not None else "unknown"
             raise LiveAPIError(
-                f"Live API connection rejected (HTTP {status}): {exc}",
+                f"Live API connection rejected (HTTP {status_text}): {exc}",
                 code=code,
             ) from exc
 

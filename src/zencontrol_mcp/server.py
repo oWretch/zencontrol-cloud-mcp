@@ -1,4 +1,54 @@
-"""ZenControl MCP Server — entry point for both stdio and HTTP transports."""
+"""ZenControl MCP Server — entry point for both stdio and HTTP transports.
+
+Authentication
+--------------
+
+**stdio mode** (default — for local AI assistants such as Claude Desktop):
+
+  The server manages the full OAuth 2.0 authorization-code + PKCE flow
+  locally.  On first run it opens a browser to the ZenControl login page to
+  obtain an access token, which is then encrypted and cached on disk.
+  Subsequent calls refresh the token automatically.
+
+  Required environment variables:
+    ZENCONTROL_CLIENT_ID      — your ZenControl OAuth client ID
+    ZENCONTROL_CLIENT_SECRET  — your ZenControl OAuth client secret
+
+  Both values are per-user credentials obtained from ZenControl support.
+  They are never transmitted to any party other than the ZenControl
+  authorization server (https://login.zencontrol.com).
+
+**streamable-http mode** (for hosted / multi-user deployments):
+
+  The server acts as a pure OAuth 2.0 *resource server*.  It does **not**
+  manage credentials or initiate any OAuth flow itself.  The expected flow is:
+
+    1. The MCP client discovers the authorization server via the
+       ``/.well-known/oauth-protected-resource`` metadata endpoint.
+    2. The MCP client directs the user to ZenControl's authorization server
+       (https://login.zencontrol.com/oauth/authorize) to obtain an access
+       token using their own OAuth client credentials.
+    3. The MCP client presents the token as ``Authorization: Bearer <token>``
+       on each request to this server.
+    4. This server validates the token by making a lightweight call to the
+       ZenControl API and, if valid, executes the requested tool.
+
+  ``ZENCONTROL_CLIENT_ID`` and ``ZENCONTROL_CLIENT_SECRET`` are **not**
+  required or used in HTTP mode.
+
+  Set ``ZENCONTROL_PUBLIC_URL`` to the public-facing HTTPS URL of this server
+  (e.g. ``https://mcp.example.com``).  Bearer tokens are only protected in
+  transit when HTTPS is used — plain HTTP is only acceptable for local
+  testing.
+
+Payload compatibility
+---------------------
+
+The ZenControl API can return some label fields as either wrapped sync objects
+(``{"value": "Office"}``) or plain strings (``"Office"``). The server's
+Pydantic models are intentionally tolerant of both shapes so site-hierarchy
+tools (such as ``get_site_details``) remain stable across payload variations.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +58,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
+from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 from zencontrol_mcp.api.client import ZenControlClient
@@ -24,38 +75,50 @@ logger = logging.getLogger(__name__)
 _DEFAULT_REDIRECT_URI = "http://localhost:9000/callback"
 
 
-def _load_config() -> dict[str, str]:
-    """Load required configuration from environment variables."""
-    client_id = os.environ.get("ZENCONTROL_CLIENT_ID")
-    client_secret = os.environ.get("ZENCONTROL_CLIENT_SECRET")
+def _load_config(transport: str) -> dict[str, str]:
+    """Load configuration from environment variables.
 
-    missing: list[str] = []
-    if not client_id:
-        missing.append("ZENCONTROL_CLIENT_ID")
-    if not client_secret:
-        missing.append("ZENCONTROL_CLIENT_SECRET")
-    if missing:
-        msg = (
-            f"Required environment variable(s) not set: {', '.join(missing)}. "
-            "Set them in your shell profile or pass them when launching the server."
-        )
-        raise SystemExit(msg)
+    In **stdio** mode the server manages the full OAuth flow and requires
+    ``ZENCONTROL_CLIENT_ID`` and ``ZENCONTROL_CLIENT_SECRET``.
 
-    return {
-        "client_id": client_id,
-        "client_secret": client_secret,
+    In **streamable-http** mode authentication is delegated entirely to
+    ZenControl's OAuth server — client credentials are not needed or loaded
+    by this server.
+    """
+    config: dict[str, str] = {
         "redirect_uri": os.environ.get(
             "ZENCONTROL_REDIRECT_URI", _DEFAULT_REDIRECT_URI
         ),
     }
 
+    if transport == "stdio":
+        client_id = os.environ.get("ZENCONTROL_CLIENT_ID", "")
+        client_secret = os.environ.get("ZENCONTROL_CLIENT_SECRET", "")
+
+        missing: list[str] = []
+        if not client_id:
+            missing.append("ZENCONTROL_CLIENT_ID")
+        if not client_secret:
+            missing.append("ZENCONTROL_CLIENT_SECRET")
+        if missing:
+            msg = (
+                f"Required environment variable(s) not set: {', '.join(missing)}. "
+                "Set them in a .env file in the working directory, your shell profile, "
+                "or pass them when launching the server."
+            )
+            raise SystemExit(msg)
+
+        config["client_id"] = client_id
+        config["client_secret"] = client_secret
+
+    return config
+
 
 @asynccontextmanager
 async def _lifespan(server: FastMCP) -> AsyncIterator[dict]:
     """Set up and tear down the API client."""
-    config = _load_config()
-
     transport: str = getattr(server, "_zencontrol_transport", "stdio")
+    config = _load_config(transport)
 
     if transport == "stdio":
         token_store = TokenStore(
@@ -88,8 +151,7 @@ async def _lifespan(server: FastMCP) -> AsyncIterator[dict]:
             logger.info("Credentials validated — %d site(s) accessible.", len(sites))
         except Exception as exc:
             raise SystemExit(
-                f"Startup failed: could not validate ZenControl credentials: {exc}\n"
-                "Check ZENCONTROL_CLIENT_ID and ZENCONTROL_CLIENT_SECRET are correct."
+                f"Startup failed: could not validate ZenControl credentials: {exc}"
             ) from exc
 
     # Scope constraint — optionally locked to a site via env var.
@@ -124,7 +186,12 @@ async def _lifespan(server: FastMCP) -> AsyncIterator[dict]:
             )
 
     try:
-        yield {"api": api, "live": live_client, "scope": scope}
+        yield {
+            "api": api,
+            "live": live_client,
+            "scope": scope,
+            "multi_user": transport != "stdio",
+        }
     finally:
         await client.close()
 
@@ -138,7 +205,19 @@ def create_server(
     auth = None
 
     if transport == "streamable-http":
-        auth = create_remote_auth_provider(base_url=f"http://{host}:{port}")
+        public_url = os.environ.get("ZENCONTROL_PUBLIC_URL")
+        if not public_url:
+            # Normalise wildcard bind addresses to a usable localhost URL.
+            _effective_host = "localhost" if host in ("0.0.0.0", "::", "") else host
+            public_url = f"http://{_effective_host}:{port}"
+        if not public_url.startswith("https://"):
+            logger.warning(
+                "ZENCONTROL_PUBLIC_URL is not HTTPS (%r). Bearer tokens will be "
+                "transmitted in cleartext. Set ZENCONTROL_PUBLIC_URL to the "
+                "public-facing HTTPS URL for any non-local deployment.",
+                public_url,
+            )
+        auth = create_remote_auth_provider(base_url=public_url)
 
     mcp = FastMCP(
         name="ZenControl",
@@ -201,6 +280,8 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    load_dotenv()
 
     logging.basicConfig(
         level=getattr(logging, args.log_level),

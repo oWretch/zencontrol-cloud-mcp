@@ -20,11 +20,22 @@ def register(mcp: FastMCP) -> None:
         Sub-site resources (floors, gateways, devices) are not validated
         because determining their parent site would require extra API calls.
 
+        Not available in HTTP multi-user mode — use the
+        ``ZENCONTROL_SCOPE_SITE`` environment variable instead.
+
         Args:
             site_identifier: The site UUID, tag (portal slug, e.g. 'brown-home'),
                 or name (e.g. 'Brown Home'). Tags match the portal URL:
                 https://cloud.zencontrol.com/sites/{tag}/
         """
+        if ctx.lifespan_context.get("multi_user"):
+            return (
+                "Scope management is not available in HTTP multi-user mode — "
+                "the scope would be shared across all connected users. "
+                "Set the ZENCONTROL_SCOPE_SITE environment variable on the "
+                "server instead."
+            )
+
         api: ZenControlAPI = ctx.lifespan_context["api"]
         scope: ScopeConstraint = ctx.lifespan_context["scope"]
 
@@ -75,7 +86,18 @@ def register(mcp: FastMCP) -> None:
         """Remove the operational scope constraint.
 
         After clearing, tools will accept requests for any accessible site.
+
+        Not available in HTTP multi-user mode — use the
+        ``ZENCONTROL_SCOPE_SITE`` environment variable instead.
         """
+        if ctx.lifespan_context.get("multi_user"):
+            return (
+                "Scope management is not available in HTTP multi-user mode — "
+                "the scope would be shared across all connected users. "
+                "Set the ZENCONTROL_SCOPE_SITE environment variable on the "
+                "server instead."
+            )
+
         scope: ScopeConstraint = ctx.lifespan_context["scope"]
 
         if not scope.site_id:

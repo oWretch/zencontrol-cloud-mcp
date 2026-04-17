@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import html
 import json
 import logging
 import secrets
@@ -142,8 +144,7 @@ class TokenStore:
                     await writer.drain()
                     writer.close()
                     await writer.wait_closed()
-                    callback_event.set()
-                    return
+                    return  # Don't fire the event — wrong/malformed request
 
                 request_path = parts[1]
                 parsed = urlparse(request_path)
@@ -153,23 +154,45 @@ class TokenStore:
                     await writer.drain()
                     writer.close()
                     await writer.wait_closed()
-                    return
+                    return  # Don't fire the event — browser preconnect etc.
 
                 qs = parse_qs(parsed.query)
 
                 if "error" in qs:
-                    error_message = qs["error"][0]
-                    writer.write(_ERROR_HTML.format(error=error_message).encode())
-                else:
-                    received_code = qs.get("code", [None])[0]
-                    received_state = qs.get("state", [None])[0]
+                    error_message = qs["error"][0]  # raw, for the RuntimeError below
+                    writer.write(
+                        _ERROR_HTML.format(error=html.escape(error_message)).encode()
+                    )
+                elif qs.get("code") and qs.get("state"):
+                    received_code = qs["code"][0]
+                    received_state = qs["state"][0]
                     writer.write(_CALLBACK_HTML.encode())
+                else:
+                    # /callback arrived but with neither code+state nor an error —
+                    # treat as malformed (e.g. browser favicon fetch on the callback path).
+                    writer.write(
+                        _ERROR_HTML.format(
+                            error="Missing required callback parameters"
+                        ).encode()
+                    )
+                    await writer.drain()
+                    writer.close()
+                    await writer.wait_closed()
+                    return  # Don't fire the event
 
                 await writer.drain()
                 writer.close()
                 await writer.wait_closed()
-            finally:
-                callback_event.set()
+            except Exception:
+                logger.debug("Error in OAuth callback handler", exc_info=True)
+                try:
+                    writer.close()
+                except Exception:
+                    pass
+                return  # Don't fire the event on unexpected I/O errors
+
+            # Only reached when we have a real OAuth result (code or error).
+            callback_event.set()
 
         server = await start_server(_handle_connection, "127.0.0.1", port)
 
@@ -177,7 +200,15 @@ class TokenStore:
         webbrowser.open(authorize_url)
 
         try:
-            await callback_event.wait()
+            async with asyncio.timeout(300):
+                await callback_event.wait()
+        except TimeoutError:
+            raise RuntimeError(
+                "No stored credentials found and interactive authentication timed out "
+                "after 5 minutes. Run the server once in a terminal to complete the "
+                "OAuth login flow before connecting from a headless environment:\n"
+                "  zencontrol-mcp"
+            ) from None
         finally:
             server.close()
             await server.wait_closed()
@@ -258,7 +289,15 @@ class TokenStore:
         """Load or generate the Fernet encryption key."""
         self.key_path.parent.mkdir(parents=True, exist_ok=True)
         if self.key_path.exists():
-            return self.key_path.read_bytes().strip()
+            key = self.key_path.read_bytes().strip()
+            if self.key_path.stat().st_mode & 0o077:
+                logger.warning(
+                    "Encryption key at %s has overly permissive file permissions. "
+                    "Run: chmod 600 %s",
+                    self.key_path,
+                    self.key_path,
+                )
+            return key
         key = Fernet.generate_key()
         self.key_path.write_bytes(key)
         self.key_path.chmod(0o600)

@@ -95,9 +95,10 @@ class ScopeConstraint:
                 f"Site {target_id} is outside the configured scope. "
                 f"Allowed site: {self.display_name}."
             )
-        # Zone IDs are formatted as 'siteId-zoneId' — check site prefix
+        # Zone IDs are formatted as 'siteId-zoneId' — check site prefix including
+        # the delimiter so that site 'abc' does not match zone 'abcdef-zone1'.
         if target_type == "zone" and self._site_id:
-            if not target_id.startswith(self._site_id):
+            if not target_id.startswith(f"{self._site_id}-"):
                 return (
                     f"Zone {target_id} does not belong to the scoped site. "
                     f"Allowed site: {self.display_name}."
