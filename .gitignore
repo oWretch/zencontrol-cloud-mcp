@@ -29,5 +29,5 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# uv
-uv.lock
+# Logs
+*.log

@@ -95,6 +95,18 @@ consumed by an LLM. Use bullet lists, tables, or short paragraphs.
   uv run ruff format --check src/ tests/
   ```
 
+## Local MCP Restart Workflow
+
+- For this repo, prefer restarting the MCP server with **VS Code MCP tooling** instead of trying to hot-reload the Python process.
+- This server normally runs in **stdio** mode from `.vscode/mcp.json`. In that mode, killing and recreating only the child process is not a reliable fix/validate loop because the MCP client session has already been initialized.
+- After changing MCP-facing code, restart the server from VS Code using one of these paths:
+  - `MCP: List Servers` → select `zencontrol` → `Restart`
+  - the inline restart action in `.vscode/mcp.json`
+  - the MCP server management UI in the Extensions or Chat customizations surfaces
+- Do **not** assume a file watcher or background wrapper is sufficient for validating stdio MCP changes inside the active Copilot session.
+- If the goal is a fix/validate loop, the expected workflow is: edit code, restart the `zencontrol` MCP server from VS Code, then retry the MCP tool call.
+- Use `uv run zencontrol-mcp --log-level DEBUG` when reproducing startup issues outside VS Code.
+
 ## Things to Avoid
 
 - Do **not** add synchronous blocking calls (`requests`, `time.sleep`).
