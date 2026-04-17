@@ -135,6 +135,27 @@ uv run pytest -v              # verbose
 uv run pytest tests/test_X.py # single file
 ```
 
+## Documentation
+
+Generate full server API docs from Python docstrings as Markdown:
+
+```bash
+uv run python scripts/generate_docs.py
+```
+
+The generated API reference is written to `docs/reference/api.md`.
+
+When changing public tools, models, or API client behavior, regenerate docs and
+include updated `docs/reference/` files in the same change.
+
+### Payload Shape Compatibility
+
+ZenControl may return some label fields either as wrapped sync objects
+(`{"value": "..."}`) or as plain strings (`"..."`).
+
+Keep model parsing tolerant of both shapes to avoid regressions in hierarchy
+tools such as `get_site_details`.
+
 ### Guidelines
 
 - **Mock HTTP calls** with [respx](https://github.com/lundberg/respx) — never
@@ -174,3 +195,77 @@ async def test_list_sites(respx_mock):
 4. Open a pull request against `main` with a clear description of what changed
    and why.
 5. Address review feedback — the PR will be squash-merged once approved.
+
+## Maintainer Operations
+
+This section is for maintainers responsible for reliability, release quality,
+and long-term project consistency.
+
+### Maintenance Goals
+
+- Keep MCP tool contracts stable and clearly documented.
+- Keep auth and transport behavior explicit and safe.
+- Ensure tests cover formatting and payload-shape edge cases.
+
+### Architecture Snapshot
+
+- Entry point: `src/zencontrol_mcp/server.py`
+- REST client layer: `src/zencontrol_mcp/api/client.py`, `src/zencontrol_mcp/api/rest.py`
+- Live API websocket layer: `src/zencontrol_mcp/api/live.py`
+- Auth/token storage: `src/zencontrol_mcp/auth/`
+- Tool registration and surface area: `src/zencontrol_mcp/tools/`
+- Models/schemas: `src/zencontrol_mcp/models/schemas.py`
+
+### Standard Local Validation
+
+```bash
+uv sync
+uv run ruff check src/ tests/
+uv run ruff format --check src/ tests/
+uv run pytest
+```
+
+### MCP Change Validation Loop
+
+For MCP-facing changes in VS Code:
+
+1. Edit code.
+2. Restart the `zencontrol` MCP server from VS Code MCP tooling.
+3. Re-run tool calls from the client.
+
+Do not rely on hot-reload assumptions for stdio-mode validation.
+
+### Documentation Responsibilities
+
+When changing behavior in tools, API methods, transport/auth, or schemas:
+
+1. Update user-facing behavior notes in `README.md`.
+2. Update contributor/maintainer process notes in `CONTRIBUTING.md`.
+3. Update coding-agent constraints in `AGENTS.md` when implementation conventions change.
+4. Regenerate reference docs:
+
+```bash
+uv run python scripts/generate_docs.py
+```
+
+### Release Checklist
+
+1. Bump version in `pyproject.toml`.
+2. Run lint, format check, and tests.
+3. Regenerate `docs/reference/api.md`.
+4. Verify docs mention any new tools, env vars, or behavior changes.
+5. Create tag/release notes with a user-impact summary.
+
+### Common Regression Risks
+
+- Payload shape drift in ZenControl API responses.
+- Scope handling regressions that allow unintended cross-site actions.
+- Tool output formatting regressions (LLM-facing string quality).
+- Live API entitlement assumptions (401/403 behavior).
+
+### Recommended Test Coverage for New Features
+
+- Positive path with representative payloads.
+- Error path with clear surfaced message.
+- Scope-constrained behavior.
+- Response formatting assertions where practical.

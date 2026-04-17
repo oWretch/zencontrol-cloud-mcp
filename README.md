@@ -19,6 +19,12 @@ transports:
 - **stdio** — for local, single-user setups (Claude Desktop, Cursor, etc.)
 - **StreamableHTTP** — for hosted / multi-user deployments
 
+## Documentation
+
+- User guide: this README
+- Maintainer guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Coding agent guidance: [AGENTS.md](AGENTS.md)
+
 ## Features
 
 | Tool | Description |
@@ -138,6 +144,34 @@ User: "Change the lobby to warm white (3000K)"
 → Calls set_colour(target_type="group", target_id="...", mode="temperature", kelvin=3000)
 ```
 
+## Core Tool Families
+
+- Site discovery: `list_sites`, `get_site_details`
+- Topology inventory: `list_groups`, `list_devices`, `list_gateways`, `list_device_locations`
+- Lighting control: `control_light`, `set_colour`, `set_profile`
+- Live telemetry: `get_live_light_levels`, `get_sensor_readings`, `get_system_variables`
+- Diagnostics: `get_device_health`
+- Scope controls: `set_scope`, `get_scope`, `clear_scope`
+
+## Safe Control Workflow
+
+1. Start with `list_sites`.
+2. Resolve a concrete target with `get_site_details` or `list_groups`.
+3. Prefer controlling groups over individual devices.
+4. Use moderate levels first (for example, 30-50%) before full output.
+5. Use scope controls to avoid cross-site mistakes in multi-site environments.
+
+## Troubleshooting
+
+- `Required environment variable(s) not set`:
+  - Set `ZENCONTROL_CLIENT_ID` and `ZENCONTROL_CLIENT_SECRET` for stdio mode.
+- HTTP 401 on live endpoints:
+  - Verify account entitlement for Live API and valid token scope.
+- HTTP 403 on diagnostics:
+  - Account may not have access to diagnostics endpoints.
+- `get_site_details` parsing inconsistencies:
+  - This server tolerates both label payload shapes (`{"value": "..."}` and plain strings).
+
 ## Architecture
 
 ```mermaid
@@ -165,9 +199,27 @@ uv run ruff format --check src/
 
 # Run tests
 uv run pytest
+
+# Generate full API docs (Markdown)
+uv run python scripts/generate_docs.py
 ```
 
+Generated documentation entry points:
+
+- `docs/reference/api.md`
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
+
+## API Payload Compatibility Notes
+
+Some ZenControl payloads can represent labels in two shapes:
+
+- Wrapped sync field: `{ "value": "Office", "state": "OK", "error": null }`
+- Plain string: `"Office"`
+
+The server accepts both formats for label fields (for example, tenancy and floor
+labels) so tools such as `get_site_details` remain robust across mixed API
+responses.
 
 ## License
 
