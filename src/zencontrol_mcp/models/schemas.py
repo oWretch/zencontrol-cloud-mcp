@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +99,14 @@ class StringField(BaseModel):
     value: str | None = None
     state: str | None = None
     error: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_from_plain_string(cls, data: object) -> object:
+        """Accept legacy/plain API payloads where string fields are bare strings."""
+        if isinstance(data, str):
+            return {"value": data}
+        return data
 
 
 class IntField(BaseModel):
@@ -226,7 +234,7 @@ class Floor(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     floor_id: str | None = Field(default=None, alias="floorId")
-    label: str | None = None
+    label: StringField | None = None
     site_id: str | None = Field(default=None, alias="siteId")
 
 
@@ -250,7 +258,7 @@ class Tenancy(BaseModel):
 
     tenancy_id: str | None = Field(default=None, alias="tenancyId")
     site_id: str | None = Field(default=None, alias="siteId")
-    label: str | None = None
+    label: StringField | None = None
     status: StatusField | None = None
 
 

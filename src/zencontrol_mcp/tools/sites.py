@@ -122,7 +122,7 @@ def register(mcp: FastMCP) -> None:
         lines.append(f"\nFloors ({len(floors)}):")
         if floors:
             for floor in floors:
-                label = floor.label or "Unlabelled"
+                label = floor.label.value if floor.label and floor.label.value else "Unlabelled"
                 lines.append(f"  • {label}  (ID: {floor.floor_id})")
         else:
             lines.append("  (none)")
@@ -131,7 +131,7 @@ def register(mcp: FastMCP) -> None:
         lines.append(f"\nTenancies ({len(tenancies)}):")
         if tenancies:
             for tenancy in tenancies:
-                label = tenancy.label or "Unlabelled"
+                label = tenancy.label.value if tenancy.label and tenancy.label.value else "Unlabelled"
                 status = (
                     tenancy.status.value
                     if tenancy.status and tenancy.status.value

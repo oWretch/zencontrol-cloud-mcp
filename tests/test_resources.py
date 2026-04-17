@@ -197,7 +197,7 @@ class TestSiteSubResources:
         fn = await _get_resource_fn("ZenControl Site Floors")
         ctx, api = _make_context()
 
-        floor = Floor(floorId="floor-1", label="Ground Floor")
+        floor = Floor(floorId="floor-1", label=StringField(value="Ground Floor"))
         api.list_floors = AsyncMock(return_value=[floor])
 
         result = await fn(site_id="test-site", ctx=ctx)

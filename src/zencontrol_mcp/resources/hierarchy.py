@@ -134,7 +134,7 @@ def register(mcp: FastMCP) -> None:
 
         lines.append(f"\nFloors ({len(floors)}):")
         for floor in floors:
-            lines.append(f"  • {floor.label or 'Unlabelled'}  (ID: {floor.floor_id})")
+            lines.append(f"  • {floor.label.value if floor.label and floor.label.value else 'Unlabelled'}  (ID: {floor.floor_id})")
         if not floors:
             lines.append("  (none)")
 
@@ -199,7 +199,7 @@ def register(mcp: FastMCP) -> None:
 
         lines = [f"Floors for site '{display}' ({len(floors)}):\n"]
         for floor in floors:
-            lines.append(f"• {floor.label or 'Unlabelled'}  (ID: {floor.floor_id})")
+            lines.append(f"• {floor.label.value if floor.label and floor.label.value else 'Unlabelled'}  (ID: {floor.floor_id})")
         return "\n".join(lines)
 
     @mcp.resource(

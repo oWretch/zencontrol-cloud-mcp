@@ -18,6 +18,7 @@ from zencontrol_mcp.models.schemas import (
     Site,
     StatusField,
     StringField,
+    Tenancy,
 )
 
 
@@ -234,6 +235,23 @@ class TestFieldTypes:
     def test_string_field_empty(self):
         sf = StringField()
         assert sf.value is None
+
+    def test_string_field_from_plain_string(self):
+        sf = StringField.model_validate("Office")
+        assert sf.value == "Office"
+        assert sf.state is None
+        assert sf.error is None
+
+    def test_tenancy_label_from_plain_string(self):
+        tenancy = Tenancy.model_validate(
+            {
+                "tenancyId": "tenancy-1",
+                "siteId": "site-1",
+                "label": "Office",
+            }
+        )
+        assert tenancy.label is not None
+        assert tenancy.label.value == "Office"
 
     def test_int_field(self):
         intf = IntField(value=42, state="OK", error=None)
