@@ -7,8 +7,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Only run on main branch pushes, skip workflow commits
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
+    # Only run on main branch pushes, skip automated release commits
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !startsWith(github.event.head_commit.message, 'chore(release):')
     environment: pypi
     permissions:
       contents: write
@@ -52,6 +52,11 @@ jobs:
             echo "changed=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Update uv.lock for release
+        if: steps.version_check.outputs.changed == 'true'
+        run: |
+          uv lock
+
       - name: Build distribution
         if: steps.version_check.outputs.changed == 'true'
         run: uv run --with build python -m build
@@ -82,7 +87,7 @@ jobs:
             # This allows all assets to be attached before release becomes immutable
             gh release create "$TAG" \
               --draft \
-              --title "Release $TAG" \
+              --title "$TAG" \
               --generate-notes \
               dist/*
             echo "Draft release created: $TAG"

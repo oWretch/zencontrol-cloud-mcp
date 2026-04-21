@@ -7,7 +7,7 @@ repos:
         stages: [commit-msg]
         args:
           - --scopes
-          - auth,api,tools,models,scope,resources,dev,docs,chore,ci
+          - auth,api,tools,models,scope,resources,dev,docs,chore,ci,deps,release,tests
           # Omitting --force-scope keeps scope optional
 
           # Python code formatting

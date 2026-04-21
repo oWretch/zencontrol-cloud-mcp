@@ -158,18 +158,27 @@ parser_angular_patch_types = ["fix", "perf"]
 parser_angular_minor_types = ["feat"]
 ```
 
-### Pre-commit Scope Regex
+### Pre-commit Scope Allowlist
 
 Commits must use one of these scopes (optional):
 ```
-auth, api, tools, models, scope, resources, dev, docs, chore, ci
+auth, api, tools, models, scope, resources, dev, docs, chore, ci, deps, release, tests
 ```
 
 Defined in `.pre-commit-config.yaml`:
 ```yaml
 args:
-  - --scope-regex=^(auth|api|tools|models|scope|resources|dev|docs|chore|ci)
+  - --scopes
+  - auth,api,tools,models,scope,resources,dev,docs,chore,ci,deps,release,tests
 ```
+
+### semantic-release Commit Message
+
+Release commits are generated with a conventional commit message so they pass the
+same validation rules as normal development commits.
+
+The exact `commit_message` value is defined in `pyproject.toml` and should be
+treated as the source of truth for the release commit body.
 
 ## Customization
 
@@ -184,8 +193,9 @@ major_on_keyword = ["BREAKING CHANGE", "BREAKING"]
 ### Changing Scopes
 
 Update in two places:
-1. `.pre-commit-config.yaml` → `--scope-regex=^(...)`
-2. `CONTRIBUTING.md` → Scope list for documentation
+1. `.pre-commit-config.yaml` → `--scopes ...`
+2. `.github/workflows/commit-lint.yml` → CI commit validation allowlist
+3. `CONTRIBUTING.md` → Scope list for documentation
 
 ### Disabling Hooks
 

@@ -26,7 +26,7 @@ jobs:
           while IFS= read -r sha; do
             git log --format="%B" -n 1 "$sha" > /tmp/commit_msg
             conventional-pre-commit \
-              --scopes auth,api,tools,models,scope,resources,dev,docs,chore,ci \
+              --scopes auth,api,tools,models,scope,resources,dev,docs,chore,ci,deps,release,tests \
               build chore ci docs feat fix perf refactor revert style test \
               /tmp/commit_msg || {
                 echo "❌ Invalid commit message in $sha:"
