@@ -119,10 +119,13 @@ When you merge to `main`:
 
 **Format**: `type(scope): message`
 - `type`: `feat`, `fix`, `docs`, `chore`, `refactor`, `perf`, `test`
-- `scope`: optional, e.g., `auth`, `api`, `cli`
+- `scope`: optional, e.g., `auth`, `api`, `deps`, `release`, `tests`
 - `message`: clear, lowercase
 
 Breaking changes use `!` or include `BREAKING CHANGE:` in body.
+
+The automated version bump commit is configured as `chore(release): {version} [skip ci]`
+so it remains valid under commit linting and does not trigger the release workflow again.
 
 ## Troubleshooting
 

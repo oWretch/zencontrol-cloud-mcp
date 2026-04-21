@@ -137,6 +137,9 @@ Closes #123
 - `docs` — Documentation
 - `chore` — Maintenance
 - `ci` — CI/CD workflows
+- `deps` — Dependency updates
+- `release` — Automated release/version commits
+- `tests` — Test-area scoped commits
 
 ## After First Release
 

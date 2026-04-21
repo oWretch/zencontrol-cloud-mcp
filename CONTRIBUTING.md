@@ -79,7 +79,7 @@ Valid types:
 - `style` — Formatting, whitespace (no version bump)
 - `ci` — CI/CD updates (no version bump)
 
-Optional scopes: `auth`, `api`, `tools`, `models`, `scope`, `resources`, `dev`
+Optional scopes: `auth`, `api`, `tools`, `models`, `scope`, `resources`, `dev`, `docs`, `chore`, `ci`, `deps`, `release`, `tests`
 
 **Breaking changes** trigger a major bump (0.1.0 → 1.0.0):
 ```
@@ -95,6 +95,9 @@ fix(auth): resolve OAuth token refresh race condition
 perf(api): cache site hierarchy queries
 docs: update README quick start
 chore(ci): update workflow dependencies
+chore(deps): bump authlib to 1.6.11
+chore(release): 1.0.1 [skip ci]
+test(tests): add site hierarchy formatting coverage
 ```
 
 Pre-commit hooks validate your commit messages before they're created. If a
