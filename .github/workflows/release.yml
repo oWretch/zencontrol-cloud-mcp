@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # Only run on main branch pushes, skip workflow commits
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
+    environment: pypi
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@6dfebec6ddbcd197e02256fbdf54deb334fb7f06 # v2
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run semantic-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          uv run semantic-release version --no-push
+          # Prints the version that was bumped (if any)
+
+      - name: Check if version changed
+        id: version_check
+        run: |
+          if git diff --quiet HEAD; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build distribution
+        if: steps.version_check.outputs.changed == 'true'
+        run: uv run python -m build
+
+      - name: Publish to PyPI
+        if: steps.version_check.outputs.changed == 'true'
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
+
+      - name: Push commits and tags
+        if: steps.version_check.outputs.changed == 'true'
+        run: |
+          git push origin main
+          git push origin --tags
+
+      - name: Create GitHub Release (immutable, as draft)
+        if: steps.version_check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get latest tag
+          TAG=$(git describe --tags --abbrev=0)
+
+          # Check if release already exists
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG already exists"
+          else
+            # Create release as DRAFT with assets
+            # This allows all assets to be attached before release becomes immutable
+            gh release create "$TAG" \
+              --draft \
+              --title "Release $TAG" \
+              --generate-notes \
+              dist/*
+            echo "Draft release created: $TAG"
+          fi
+
+      - name: Publish immutable release
+        if: steps.version_check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(git describe --tags --abbrev=0)
+
+          # Publish the draft release to make it immutable
+          # (Only if not already published)
+          if gh release view "$TAG" --json isDraft -q '.isDraft' 2>/dev/null | grep -q true; then
+            gh release edit "$TAG" --draft=false --latest
+            echo "Published immutable release: $TAG"
+          else
+            echo "Release $TAG already published"
+          fi
