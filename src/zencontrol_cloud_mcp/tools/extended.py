@@ -273,7 +273,7 @@ def register(mcp: FastMCP) -> None:
 
         command = DaliCommand(
             type=DaliCommandType.GO_TO_PROFILE,
-            profile_number=profile_number,
+            profileNumber=profile_number,
         )
 
         # Elicitation guard for broad-scope commands

@@ -20,19 +20,44 @@ The project uses **Python native tools** for automation:
 ## Quick Start
 
 ### 1. Initial Setup (Required)
+
+#### PyPI Trusted Publisher (OIDC)
+
+This project uses [Trusted Publishers](https://docs.pypi.org/trusted-publishers/)
+(OpenID Connect) instead of API tokens. No secrets need to be stored in GitHub —
+PyPI verifies the identity of the GitHub Actions workflow directly.
+
+**For a brand-new project** (not yet on PyPI):
+
+1. Log in to [PyPI](https://pypi.org/) and go to your account's
+   [Publishing](https://pypi.org/manage/account/publishing/) page.
+2. Under "Add a new pending publisher", fill in:
+   - **PyPI project name**: `zencontrol-cloud-mcp`
+   - **Owner**: `oWretch`
+   - **Repository name**: `zencontrol-cloud-mcp`
+   - **Workflow name**: `release.yml`
+   - **Environment name**: `pypi`
+3. Click **Add**.
+
+**For an existing project** (already on PyPI):
+
+1. Go to the project's [Publishing settings](https://pypi.org/manage/project/zencontrol-cloud-mcp/settings/publishing/).
+2. Add the same GitHub publisher details as above.
+
+See [Creating a project through OIDC](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/)
+for full details.
+
+#### GitHub Environment
+
+The release workflow requires a GitHub Actions environment named `pypi`:
+
+1. Go to **Settings → Environments → New environment**.
+2. Name it `pypi`.
+3. Optionally add deployment protection rules (e.g., required reviewers).
+
+#### Pre-commit Hooks
+
 ```bash
-# Create PyPI account if needed
-# https://pypi.org/account/register/
-
-# Create PyPI API token
-# https://pypi.org/manage/account/tokens/
-# Copy the token (starts with 'pypi-')
-
-# Add token to GitHub repository
-# Settings → Secrets and variables → Actions → New repository secret
-# Name: PYPI_API_TOKEN
-# Value: [paste your token]
-
 # Install pre-commit hooks (local development)
 uv run pre-commit install --hook-type commit-msg --hook-type pre-commit
 ```
@@ -74,7 +99,7 @@ When you merge to `main`:
 - Runs on: Merge to `main` branch only
 - Semantic-release analyzes commits
 - Updates version in code
-- Publishes to PyPI
+- Publishes to PyPI via OIDC Trusted Publisher (no API token needed)
 - **Creates GitHub release with auto-generated changelog**
 - **Tags are immutable once created**
 
@@ -102,7 +127,8 @@ Breaking changes use `!` or include `BREAKING CHANGE:` in body.
 ## Troubleshooting
 
 ### Workflow doesn't run
-- Check: Is `PYPI_API_TOKEN` secret set? (Settings → Secrets)
+- Check: Is the Trusted Publisher configured on PyPI? (see Initial Setup above)
+- Check: Does the GitHub `pypi` environment exist? (Settings → Environments)
 - Check: Did you merge to `main` branch?
 - Check: Did previous commits follow conventional format?
 
@@ -115,9 +141,10 @@ Breaking changes use `!` or include `BREAKING CHANGE:` in body.
 - If manually pushing fails, check branch protection settings
 
 ### PyPI upload failed
-- Verify token is valid and not expired
-- Check token has "Entire repository" scope
-- Try regenerating token if issues persist
+- Verify the Trusted Publisher is configured correctly on PyPI
+- Ensure the workflow name (`release.yml`) and environment (`pypi`) match exactly
+- Check `id-token: write` permission is set in the workflow
+- See [Troubleshooting Trusted Publishers](https://docs.pypi.org/trusted-publishers/troubleshooting/)
 
 ## Files Changed
 
@@ -146,13 +173,14 @@ ls -lh dist/
 
 ## Next Steps
 
-1. ✅ Set up PyPI token in GitHub
-2. ✅ Install pre-commit hooks locally: `uv run pre-commit install --hook-type commit-msg --hook-type pre-commit`
-3. ✅ **Enable immutable releases**: Settings → Releases → check "Enable release immutability"
-4. ✅ Make a test commit with `feat:` prefix
-5. ✅ Merge to `main` and watch the workflow run
-6. ✅ Verify release on [PyPI](https://pypi.org/project/zencontrol-cloud-mcp/)
-7. ✅ Check GitHub release shows 🔒 **Immutable** label
+1. ✅ Configure [Trusted Publisher on PyPI](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/) (OIDC — no API token needed)
+2. ✅ Create `pypi` environment in GitHub (Settings → Environments)
+3. ✅ Install pre-commit hooks locally: `uv run pre-commit install --hook-type commit-msg --hook-type pre-commit`
+4. ✅ **Enable immutable releases**: Settings → Releases → check "Enable release immutability"
+5. ✅ Make a test commit with `feat:` prefix
+6. ✅ Merge to `main` and watch the workflow run
+7. ✅ Verify release on [PyPI](https://pypi.org/project/zencontrol-cloud-mcp/)
+8. ✅ Check GitHub release shows 🔒 **Immutable** label
 
 ## GitHub Release & Tag Immutability
 

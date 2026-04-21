@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from fastmcp import Context
 
     from zencontrol_cloud_mcp.api.rest import ZenControlAPI
+    from zencontrol_cloud_mcp.models.schemas import DaliCommandErrors
 
 from zencontrol_cloud_mcp.scope import ScopeConstraint
 
@@ -45,13 +46,13 @@ def wants_property(requested: set[str] | None, *aliases: str) -> bool:
 
 
 def _format_command_result(
-    result: object,
+    result: DaliCommandErrors | None,
     target_type: str,
     target_id: str,
     action: str,
 ) -> str:
     """Format the result of a send_command call into a human-readable string."""
-    if result is not None and hasattr(result, "errors") and result.errors:
+    if result is not None and result.errors:
         error_lines = [f"  • [{e.error_code}] {e.error_message}" for e in result.errors]
         return f"Command '{action}' sent to {target_type} {target_id} with errors:\n" + "\n".join(
             error_lines

@@ -157,7 +157,8 @@ class TokenStore:
                 qs = parse_qs(parsed.query)
 
                 if "error" in qs:
-                    error_message = qs["error"][0]  # raw, for the RuntimeError below
+                    raw_error = qs["error"][0]  # raw, for the RuntimeError below
+                    error_message = str(raw_error)
                     writer.write(_ERROR_HTML.format(error=html.escape(error_message)).encode())
                 elif qs.get("code") and qs.get("state"):
                     received_code = qs["code"][0]

@@ -34,8 +34,9 @@ transports:
 
 - **Python 3.11+**
 - **ZenControl Cloud account** with API credentials (`client_id` and
-  `client_secret`) — request them from
-  [ZenControl Support](https://support.zencontrol.com/hc/en-us/requests/new)
+  `client_secret`) — see
+  [How to use OAuth 2.0 authentication for zencontrol cloud APIs](https://support.zencontrol.com/hc/en-us/articles/360001424956-How-to-use-OAuth-2-0-authentication-for-zencontrol-cloud-APIs)
+  for instructions on obtaining credentials
 - **[uv](https://docs.astral.sh/uv/)** package manager (recommended) or `pip`
 
 ## Quick Start
@@ -50,7 +51,7 @@ transports:
 2. **Run with `uvx`:**
 
    ```bash
-  uvx zencontrol-cloud-mcp
+   uvx zencontrol-cloud-mcp
    ```
 
    On first launch a browser window will open so you can log in to ZenControl.
@@ -101,10 +102,12 @@ Then point your MCP client at the HTTP endpoint:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `ZENCONTROL_CLIENT_ID` | Yes | — | OAuth client ID |
-| `ZENCONTROL_CLIENT_SECRET` | Yes | — | OAuth client secret |
+| `ZENCONTROL_CLIENT_ID` | Yes (stdio) | — | OAuth client ID |
+| `ZENCONTROL_CLIENT_SECRET` | Yes (stdio) | — | OAuth client secret |
 | `ZENCONTROL_REDIRECT_URI` | No | `http://localhost:9000/callback` | OAuth redirect URI |
 | `ZENCONTROL_PORT` | No | `9000` | HTTP server port |
+| `ZENCONTROL_PUBLIC_URL` | No | — | Public HTTPS URL for HTTP mode (e.g. `https://mcp.example.com`) |
+| `ZENCONTROL_SCOPE_SITE` | No | — | Lock operations to a site (UUID, tag, or name) |
 
 ## Authentication
 
@@ -168,16 +171,19 @@ User: "Change the lobby to warm white (3000K)"
 
 ## Architecture
 
-```mermaid
-graph LR
-    Client["MCP Client<br/>(Claude, Cursor, …)"]
-    Server["zencontrol-cloud-mcp<br/>FastMCP Server"]
-    API["ZenControl<br/>Cloud API"]
-    Tokens["Encrypted<br/>Token Store"]
-
-    Client -- "stdio / StreamableHTTP" --> Server
-    Server -- "REST + Live API" --> API
-    Server -- "read / write" --> Tokens
+```text
+┌─────────────────────┐     stdio / StreamableHTTP     ┌─────────────────────┐
+│     MCP Client      │ ──────────────────────────────▶ │ zencontrol-cloud-mcp│
+│ (Claude, Cursor, …) │                                │   FastMCP Server    │
+└─────────────────────┘                                └──────────┬──────────┘
+                                                                  │
+                                                    REST + Live API│
+                                                                  ▼
+                                                       ┌──────────────────┐
+                            ┌──────────────────┐       │    ZenControl    │
+                            │    Encrypted     │◀─────▶│    Cloud API     │
+                            │   Token Store    │       └──────────────────┘
+                            └──────────────────┘
 ```
 
 ## Development

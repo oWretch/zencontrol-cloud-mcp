@@ -33,9 +33,11 @@ public HTTPS URL of this server.
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 import httpx
 from fastmcp.server.auth import AccessToken, RemoteAuthProvider, TokenVerifier
+from pydantic import AnyHttpUrl
 
 from zencontrol_cloud_mcp.auth.oauth import AUTHORIZE_URL
 
@@ -86,9 +88,10 @@ def create_remote_auth_provider(
         The public base URL of this MCP server (used for metadata endpoints).
     """
     verifier = ZenControlTokenVerifier()
+    auth_server = cast(AnyHttpUrl, AUTHORIZE_URL)
     return RemoteAuthProvider(
         token_verifier=verifier,
-        authorization_servers=[AUTHORIZE_URL],
+        authorization_servers=[auth_server],
         base_url=base_url,
         resource_name="ZenControl Lighting",
     )

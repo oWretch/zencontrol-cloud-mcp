@@ -40,7 +40,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          uv run semantic-release version --no-push
+          uv run semantic-release version --no-push --no-changelog
           # Prints the version that was bumped (if any)
 
       - name: Check if version changed
@@ -54,7 +54,7 @@ jobs:
 
       - name: Build distribution
         if: steps.version_check.outputs.changed == 'true'
-        run: uv run python -m build
+        run: uv run --with build python -m build
 
       - name: Publish to PyPI
         if: steps.version_check.outputs.changed == 'true'
