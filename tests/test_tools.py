@@ -403,6 +403,16 @@ class TestListSites:
         tool_fn = await _get_tool_fn(mcp, "list_sites")
         return await tool_fn(ctx=ctx)
 
+    async def _call_list_sites_with_properties(self, ctx, properties: str):
+        from fastmcp import FastMCP
+
+        from zencontrol_mcp.tools.sites import register
+
+        mcp = FastMCP("test")
+        register(mcp)
+        tool_fn = await _get_tool_fn(mcp, "list_sites")
+        return await tool_fn(ctx=ctx, properties=properties)
+
     async def test_list_sites_empty(self):
         ctx, api = _make_mock_context()
         api.list_sites = AsyncMock(return_value=[])
@@ -420,6 +430,18 @@ class TestListSites:
         assert "3b5b2c02-0e43-423f-9719-758ab3fcb456" in result
         assert "hq" in result
         assert "Brisbane" in result
+
+    async def test_list_sites_filters_properties(self, sample_site):
+        from zencontrol_mcp.models.schemas import Site
+
+        site = Site.model_validate(sample_site)
+        ctx, api = _make_mock_context()
+        api.list_sites = AsyncMock(return_value=[site])
+
+        result = await self._call_list_sites_with_properties(ctx, "id")
+        assert "3b5b2c02-0e43-423f-9719-758ab3fcb456" in result
+        assert "HQ Office" not in result
+        assert "Brisbane" not in result
 
 
 # ---------------------------------------------------------------------------

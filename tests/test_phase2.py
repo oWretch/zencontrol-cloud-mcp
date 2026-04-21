@@ -86,6 +86,25 @@ class TestListGateways:
         assert "2.1.0" in result
         assert "AA:BB:CC:DD:EE:FF" in result
 
+    async def test_filters_properties(self):
+        gw = Gateway(
+            gateway_id=DaliId(gtin=565343546, serial="AABBCCDD"),
+            label=StringField(value="Main Gateway"),
+            firmware_version="2.1.0",
+            mac_address="AA:BB:CC:DD:EE:FF",
+        )
+        ctx, api = _make_mock_context()
+        api.list_gateways = AsyncMock(return_value=[gw])
+        result = await self._call(
+            ctx,
+            scope_type="site",
+            scope_id="abc",
+            properties="id",
+        )
+        assert "565343546-AABBCCDD" in result
+        assert "Main Gateway" not in result
+        assert "AA:BB:CC:DD:EE:FF" not in result
+
 
 # ---------------------------------------------------------------------------
 # list_device_locations
@@ -186,6 +205,21 @@ class TestListProfiles:
         assert "Work hours" in result
         assert "number: 1" in result
         assert "ACTIVE" in result
+
+    async def test_filters_properties(self):
+        profiles = [
+            Profile(
+                label=StringField(value="Work hours"),
+                profile_number=IntField(value=1),
+                status=StatusField(value="ACTIVE"),
+            ),
+        ]
+        ctx, api = _make_mock_context()
+        api.list_profiles = AsyncMock(return_value=profiles)
+        result = await self._call(ctx, site_id="abc", properties="number")
+        assert "number: 1" in result
+        assert "Work hours" not in result
+        assert "ACTIVE" not in result
 
 
 # ---------------------------------------------------------------------------

@@ -12,7 +12,9 @@ from zencontrol_mcp.tools._helpers import (
     _format_command_result,
     confirm_broad_command,
     get_scope_constraint,
+    parse_requested_properties,
     resolve_scope_id,
+    wants_property,
 )
 
 
@@ -24,6 +26,7 @@ def register(mcp: FastMCP) -> None:
         ctx: Context,
         scope_type: str,
         scope_id: str,
+        properties: str | None = None,
     ) -> str:
         """List gateways (DALI controllers) within a scope.
 
@@ -34,8 +37,11 @@ def register(mcp: FastMCP) -> None:
             scope_type: Parent scope type. One of: site, floor, map, control_system.
             scope_id: The ID of the parent scope. When scope_type is 'site', accepts a
                 UUID, tag (e.g. 'brown-home'), or name.
+            properties: Optional comma-separated fields to include. Supported:
+                label, id, firmware, mac, sync.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+        requested = parse_requested_properties(properties)
 
         try:
             resolved_id = await resolve_scope_id(api, scope_type, scope_id)
@@ -64,10 +70,19 @@ def register(mcp: FastMCP) -> None:
             if gw.sync_status:
                 sync = f"  Sync: {gw.sync_status}"
 
-            lines.append(f"• {label}")
-            lines.append(f"  ID: {gw_id_str}")
-            lines.append(f"  Firmware: {fw}  |  MAC: {mac}")
-            if sync:
+            lines.append(f"• {label if wants_property(requested, 'label', 'name') else 'Gateway'}")
+            if wants_property(requested, "id", "gateway_id"):
+                lines.append(f"  ID: {gw_id_str}")
+
+            fw_mac: list[str] = []
+            if wants_property(requested, "firmware"):
+                fw_mac.append(f"Firmware: {fw}")
+            if wants_property(requested, "mac", "mac_address"):
+                fw_mac.append(f"MAC: {mac}")
+            if fw_mac:
+                lines.append(f"  {'  |  '.join(fw_mac)}")
+
+            if sync and wants_property(requested, "sync", "sync_status"):
                 lines.append(sync)
             lines.append("")
 
@@ -78,6 +93,7 @@ def register(mcp: FastMCP) -> None:
         ctx: Context,
         scope_type: str,
         scope_id: str,
+        properties: str | None = None,
     ) -> str:
         """List device locations within a scope.
 
@@ -88,8 +104,11 @@ def register(mcp: FastMCP) -> None:
             scope_type: Parent scope type. One of: site, floor, map, control_system, gateway.
             scope_id: The ID of the parent scope. When scope_type is 'site', accepts a
                 UUID, tag (e.g. 'brown-home'), or name.
+            properties: Optional comma-separated fields to include. Supported:
+                label, status, id, linked_device.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+        requested = parse_requested_properties(properties)
 
         try:
             resolved_id = await resolve_scope_id(api, scope_type, scope_id)
@@ -119,23 +138,38 @@ def register(mcp: FastMCP) -> None:
                 bu = loc.device_id.bus_unit_id
                 linked = f"{gw.gtin}-{gw.serial}-{bu.gtin}-{bu.serial}"
 
-            lines.append(f"• {label}  [{status}]")
-            lines.append(f"  ID: {loc_id}")
-            lines.append(f"  Linked device: {linked}")
+            title = (
+                label if wants_property(requested, "label", "name") else "Device location"
+            )
+            if wants_property(requested, "status"):
+                lines.append(f"• {title}  [{status}]")
+            else:
+                lines.append(f"• {title}")
+            if wants_property(requested, "id", "device_location_id"):
+                lines.append(f"  ID: {loc_id}")
+            if wants_property(requested, "linked_device", "device_id"):
+                lines.append(f"  Linked device: {linked}")
             lines.append("")
 
         return "\n".join(lines)
 
     @mcp.tool()
-    async def list_scenes(ctx: Context, site_id: str) -> str:
+    async def list_scenes(
+        ctx: Context,
+        site_id: str,
+        properties: str | None = None,
+    ) -> str:
         """List available DALI scenes for a site.
 
         Scenes are preconfigured lighting states that can be recalled with control_light.
 
         Args:
             site_id: The UUID, tag (e.g. 'brown-home'), or name of the site.
+            properties: Optional comma-separated fields to include. Supported:
+                label, number.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+        requested = parse_requested_properties(properties)
 
         try:
             site = await api.resolve_site_identifier(site_id)
@@ -155,12 +189,20 @@ def register(mcp: FastMCP) -> None:
         for scene in scenes:
             label = scene.label or "Unlabelled"
             number = scene.scene_number if scene.scene_number is not None else "N/A"
-            lines.append(f"• {label}  (scene number: {number})")
+            scene_title = label if wants_property(requested, "label", "name") else "Scene"
+            if wants_property(requested, "number", "scene_number"):
+                lines.append(f"• {scene_title}  (scene number: {number})")
+            else:
+                lines.append(f"• {scene_title}")
 
         return "\n".join(lines)
 
     @mcp.tool()
-    async def list_profiles(ctx: Context, site_id: str) -> str:
+    async def list_profiles(
+        ctx: Context,
+        site_id: str,
+        properties: str | None = None,
+    ) -> str:
         """List lighting profiles for a site.
 
         Profiles define scheduled lighting configurations (e.g., 'Work hours', 'After hours').
@@ -168,8 +210,11 @@ def register(mcp: FastMCP) -> None:
 
         Args:
             site_id: The UUID, tag (e.g. 'brown-home'), or name of the site.
+            properties: Optional comma-separated fields to include. Supported:
+                label, number, status.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+        requested = parse_requested_properties(properties)
 
         try:
             site = await api.resolve_site_identifier(site_id)
@@ -204,7 +249,13 @@ def register(mcp: FastMCP) -> None:
                 if profile.status and profile.status.value
                 else "unknown"
             )
-            lines.append(f"• {label}  (number: {number})  [{status}]")
+            title = label if wants_property(requested, "label", "name") else "Profile"
+            parts: list[str] = [f"• {title}"]
+            if wants_property(requested, "number", "profile_number"):
+                parts.append(f"(number: {number})")
+            if wants_property(requested, "status"):
+                parts.append(f"[{status}]")
+            lines.append("  ".join(parts))
 
         return "\n".join(lines)
 
@@ -257,6 +308,7 @@ def register(mcp: FastMCP) -> None:
         ctx: Context,
         scope_type: str,
         scope_id: str,
+        properties: str | None = None,
     ) -> str:
         """Get control gear health and diagnostic information.
 
@@ -269,10 +321,13 @@ def register(mcp: FastMCP) -> None:
             scope_type: Scope type. One of: site, tenancy.
             scope_id: The UUID of the site or tenancy. When scope_type is
                 'site', also accepts a tag (e.g. 'brown-home') or name.
+            properties: Optional comma-separated fields to include. Supported:
+                metric, id, value.
         """
         import asyncio as _asyncio
 
         api: ZenControlAPI = ctx.lifespan_context["api"]
+        requested = parse_requested_properties(properties)
 
         if scope_type == "site":
             try:
@@ -325,7 +380,8 @@ def register(mcp: FastMCP) -> None:
 
         for metric_key, label in metrics:
             result = results.get(metric_key)
-            lines.append(f"## {label}")
+            if wants_property(requested, "metric", "label"):
+                lines.append(f"## {label}")
             if isinstance(result, Exception):
                 lines.append(f"  (unavailable: {result})\n")
                 continue
@@ -349,7 +405,14 @@ def register(mcp: FastMCP) -> None:
                         value_str += f" ({issue})"
                 else:
                     value_str = str(latest)
-                lines.append(f"  • {item_id}: {value_str}")
+                if wants_property(requested, "id") and wants_property(
+                    requested, "value"
+                ):
+                    lines.append(f"  • {item_id}: {value_str}")
+                elif wants_property(requested, "id"):
+                    lines.append(f"  • {item_id}")
+                elif wants_property(requested, "value"):
+                    lines.append(f"  • {value_str}")
             lines.append("")
 
         return "\n".join(lines)

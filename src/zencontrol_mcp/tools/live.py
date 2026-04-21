@@ -6,7 +6,11 @@ from fastmcp import Context, FastMCP
 
 from zencontrol_mcp.api.live import LiveAPIError, LiveClient
 from zencontrol_mcp.api.rest import ZenControlAPI
-from zencontrol_mcp.tools._helpers import get_scope_constraint
+from zencontrol_mcp.tools._helpers import (
+    get_scope_constraint,
+    parse_requested_properties,
+    wants_property,
+)
 
 _LIVE_ACCESS_HINT = (
     "The Live API requires separate activation for your ZenControl client. "
@@ -35,6 +39,7 @@ def register(mcp: FastMCP) -> None:
         site_id: str,
         duration: int = 5,
         target: str = "groups",
+        properties: str | None = None,
     ) -> str:
         """Get current live light levels from a site.
 
@@ -48,12 +53,15 @@ def register(mcp: FastMCP) -> None:
             site_id: The UUID, tag (e.g. 'brown-home'), or name of the site.
             duration: How many seconds to listen for updates (1-30, default 5).
             target: What to monitor: 'groups' for group levels, 'ecgs' for individual gear levels.
+            properties: Optional comma-separated fields to include. Supported:
+                gateway, target_id, percent, arc.
         """
         if error := _validate_duration(duration):
             return error
 
         if target not in ("groups", "ecgs"):
             return "Target must be 'groups' or 'ecgs'."
+        requested = parse_requested_properties(properties)
 
         api: ZenControlAPI = ctx.lifespan_context["api"]
         try:
@@ -101,9 +109,23 @@ def register(mcp: FastMCP) -> None:
                     group_num = group.get("id", {}).get("groupNumber", "?")
                     value = group.get("value", 0)
                     pct = value / 254 * 100
-                    lines.append(
-                        f"  {gw_id} group {group_num}: {pct:.0f}% (arc {value})"
-                    )
+                    if requested is None:
+                        lines.append(
+                            f"  {gw_id} group {group_num}: {pct:.0f}% (arc {value})"
+                        )
+                        continue
+
+                    parts: list[str] = ["  "]
+                    if wants_property(requested, "gateway", "gateway_id"):
+                        parts.append(gw_id)
+                    if wants_property(requested, "target_id", "group", "group_number"):
+                        parts.append(f"group {group_num}")
+                    if wants_property(requested, "percent"):
+                        parts.append(f"{pct:.0f}%")
+                    if wants_property(requested, "arc"):
+                        parts.append(f"(arc {value})")
+                    line = " ".join(parts).rstrip()
+                    lines.append(line if line.strip() else f"  group {group_num}")
             else:
                 for ecg in event.get("ecgs", []):
                     ecg_id = ecg.get("id", {})
@@ -112,10 +134,24 @@ def register(mcp: FastMCP) -> None:
                     logical_idx = ecg_id.get("logicalIndex", "?")
                     value = ecg.get("value", 0)
                     pct = value / 254 * 100
-                    lines.append(
-                        f"  {gw_id} ecg {bus_gtin}-{bus_serial}-{logical_idx}: "
-                        f"{pct:.0f}% (arc {value})"
-                    )
+                    ecg_target = f"ecg {bus_gtin}-{bus_serial}-{logical_idx}"
+                    if requested is None:
+                        lines.append(
+                            f"  {gw_id} {ecg_target}: {pct:.0f}% (arc {value})"
+                        )
+                        continue
+
+                    parts = ["  "]
+                    if wants_property(requested, "gateway", "gateway_id"):
+                        parts.append(gw_id)
+                    if wants_property(requested, "target_id", "ecg", "ecg_id"):
+                        parts.append(ecg_target)
+                    if wants_property(requested, "percent"):
+                        parts.append(f"{pct:.0f}%")
+                    if wants_property(requested, "arc"):
+                        parts.append(f"(arc {value})")
+                    line = " ".join(parts).rstrip()
+                    lines.append(line if line.strip() else f"  {ecg_target}")
 
         return "\n".join(lines)
 
@@ -125,6 +161,7 @@ def register(mcp: FastMCP) -> None:
         site_id: str,
         sensor_type: str = "light",
         duration: int = 5,
+        properties: str | None = None,
     ) -> str:
         """Get live sensor readings from a site.
 
@@ -138,12 +175,15 @@ def register(mcp: FastMCP) -> None:
             site_id: The UUID, tag (e.g. 'brown-home'), or name of the site.
             sensor_type: Type of sensor: 'light' for lux readings, 'occupancy' for movement detection.
             duration: How many seconds to listen for updates (1-30, default 5).
+            properties: Optional comma-separated fields to include. Supported:
+                gateway, sensor_id, instance, value, calibrated, status.
         """
         if error := _validate_duration(duration):
             return error
 
         if sensor_type not in ("light", "occupancy"):
             return "Sensor type must be 'light' or 'occupancy'."
+        requested = parse_requested_properties(properties)
 
         api: ZenControlAPI = ctx.lifespan_context["api"]
         try:
@@ -195,11 +235,20 @@ def register(mcp: FastMCP) -> None:
                     instance = s_id.get("instanceNumber", "?")
                     value = sensor.get("value", 0)
                     calibrated = sensor.get("isCalibrated", False)
-                    lines.append(
-                        f"  {gw_id} sensor {bus_gtin}-{bus_serial} "
-                        f"instance {instance}: {value} lx "
-                        f"(calibrated: {calibrated})"
-                    )
+                    sensor_target = f"sensor {bus_gtin}-{bus_serial}"
+                    parts = ["  "]
+                    if wants_property(requested, "gateway", "gateway_id"):
+                        parts.append(gw_id)
+                    if wants_property(requested, "sensor_id"):
+                        parts.append(sensor_target)
+                    if wants_property(requested, "instance", "instance_number"):
+                        parts.append(f"instance {instance}")
+                    if wants_property(requested, "value", "lux"):
+                        parts.append(f"{value} lx")
+                    if wants_property(requested, "calibrated"):
+                        parts.append(f"(calibrated: {calibrated})")
+                    line = " ".join(parts).rstrip()
+                    lines.append(line if line.strip() else f"  {sensor_target}")
             else:
                 for sensor in event.get("occupancySensors", []):
                     s_id = sensor.get("id", {})
@@ -208,10 +257,18 @@ def register(mcp: FastMCP) -> None:
                     instance = s_id.get("instanceNumber", "?")
                     value = sensor.get("value", 0)
                     status = "movement detected" if value == 1 else "no movement"
-                    lines.append(
-                        f"  {gw_id} sensor {bus_gtin}-{bus_serial} "
-                        f"instance {instance}: {status}"
-                    )
+                    sensor_target = f"sensor {bus_gtin}-{bus_serial}"
+                    parts = ["  "]
+                    if wants_property(requested, "gateway", "gateway_id"):
+                        parts.append(gw_id)
+                    if wants_property(requested, "sensor_id"):
+                        parts.append(sensor_target)
+                    if wants_property(requested, "instance", "instance_number"):
+                        parts.append(f"instance {instance}")
+                    if wants_property(requested, "status", "value"):
+                        parts.append(status)
+                    line = " ".join(parts).rstrip()
+                    lines.append(line if line.strip() else f"  {sensor_target}")
 
         return "\n".join(lines)
 
@@ -220,6 +277,7 @@ def register(mcp: FastMCP) -> None:
         ctx: Context,
         site_id: str,
         duration: int = 5,
+        properties: str | None = None,
     ) -> str:
         """Get live system variable changes from a site.
 
@@ -233,9 +291,12 @@ def register(mcp: FastMCP) -> None:
         Args:
             site_id: The UUID, tag (e.g. 'brown-home'), or name of the site.
             duration: How many seconds to listen for updates (1-30, default 5).
+            properties: Optional comma-separated fields to include. Supported:
+                gateway, index, value, signed, magnitude.
         """
         if error := _validate_duration(duration):
             return error
+        requested = parse_requested_properties(properties)
 
         api: ZenControlAPI = ctx.lifespan_context["api"]
         try:
@@ -279,9 +340,18 @@ def register(mcp: FastMCP) -> None:
                 signed_value = var.get("signedValue", 0)
                 magnitude = var.get("magnitude", 127)
                 actual_value = signed_value * (10 ** (magnitude - 127))
-                lines.append(
-                    f"  {gw_id} variable {index}: {actual_value} "
-                    f"(signed={signed_value}, magnitude={magnitude})"
-                )
+                parts = ["  "]
+                if wants_property(requested, "gateway", "gateway_id"):
+                    parts.append(gw_id)
+                if wants_property(requested, "index"):
+                    parts.append(f"variable {index}:")
+                if wants_property(requested, "value", "actual_value"):
+                    parts.append(str(actual_value))
+                if wants_property(requested, "signed"):
+                    parts.append(f"(signed={signed_value})")
+                if wants_property(requested, "magnitude"):
+                    parts.append(f"(magnitude={magnitude})")
+                line = " ".join(parts).rstrip()
+                lines.append(line if line.strip() else f"  variable {index}")
 
         return "\n".join(lines)

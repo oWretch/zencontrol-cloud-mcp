@@ -5,7 +5,12 @@ from __future__ import annotations
 from fastmcp import Context, FastMCP
 
 from zencontrol_mcp.api.rest import ZenControlAPI
-from zencontrol_mcp.tools._helpers import get_scope_constraint, resolve_scope_id
+from zencontrol_mcp.tools._helpers import (
+    get_scope_constraint,
+    parse_requested_properties,
+    resolve_scope_id,
+    wants_property,
+)
 
 
 def _format_dali_id(dali_id: object) -> str:
@@ -21,6 +26,7 @@ def register(mcp: FastMCP) -> None:
         ctx: Context,
         scope_type: str,
         scope_id: str,
+        properties: str | None = None,
     ) -> str:
         """List lighting groups within a scope.
 
@@ -31,8 +37,11 @@ def register(mcp: FastMCP) -> None:
             scope_type: The type of parent scope. One of: site, floor, map, control_system, gateway.
             scope_id: The ID of the parent scope. When scope_type is 'site', accepts a
                 UUID, tag (e.g. 'brown-home'), or name.
+            properties: Optional comma-separated fields to include. Supported:
+                label, target_id, type, status, permissions.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+        requested = parse_requested_properties(properties)
 
         try:
             resolved_id = await resolve_scope_id(api, scope_type, scope_id)
@@ -83,9 +92,18 @@ def register(mcp: FastMCP) -> None:
                 elif can_read:
                     perm_tag = "  [view only]"
 
-            lines.append(f"• {label}{perm_tag}")
-            lines.append(f"  Target ID: {target_id}")
-            lines.append(f"  Type: {group_type}  |  Status: {status}")
+            name = label if wants_property(requested, "label", "name") else "Group"
+            perm = perm_tag if wants_property(requested, "permissions") else ""
+            lines.append(f"• {name}{perm}")
+            if wants_property(requested, "target_id", "id"):
+                lines.append(f"  Target ID: {target_id}")
+            type_status: list[str] = []
+            if wants_property(requested, "type"):
+                type_status.append(f"Type: {group_type}")
+            if wants_property(requested, "status"):
+                type_status.append(f"Status: {status}")
+            if type_status:
+                lines.append(f"  {'  |  '.join(type_status)}")
             lines.append("")
 
         return "\n".join(lines)
@@ -95,6 +113,7 @@ def register(mcp: FastMCP) -> None:
         ctx: Context,
         scope_type: str,
         scope_id: str,
+        properties: str | None = None,
     ) -> str:
         """List lighting devices and their control gear (ECGs) within a scope.
 
@@ -105,8 +124,11 @@ def register(mcp: FastMCP) -> None:
             scope_type: The type of parent scope. One of: site, floor, map, control_system, gateway.
             scope_id: The ID of the parent scope. When scope_type is 'site', accepts a
                 UUID, tag (e.g. 'brown-home'), or name.
+            properties: Optional comma-separated fields to include. Supported:
+                label, status, device_id, identifier, ecgs, ecds, ecg_ids, ecd_ids.
         """
         api: ZenControlAPI = ctx.lifespan_context["api"]
+        requested = parse_requested_properties(properties)
 
         try:
             resolved_id = await resolve_scope_id(api, scope_type, scope_id)
@@ -154,13 +176,18 @@ def register(mcp: FastMCP) -> None:
             )
             id_str = f"  Identifier: {identifier}" if identifier else ""
 
-            lines.append(f"• {label}  [{status}]")
-            lines.append(f"  Device ID: {dev_id_str}")
-            if id_str:
+            title = label if wants_property(requested, "label", "name") else "Device"
+            if wants_property(requested, "status"):
+                lines.append(f"• {title}  [{status}]")
+            else:
+                lines.append(f"• {title}")
+            if wants_property(requested, "device_id", "id"):
+                lines.append(f"  Device ID: {dev_id_str}")
+            if id_str and wants_property(requested, "identifier"):
                 lines.append(id_str)
 
             # ECGs
-            if device.ecgs:
+            if device.ecgs and wants_property(requested, "ecgs", "ecg_ids"):
                 for ecg in device.ecgs:
                     ecg_label = (
                         ecg.label.value
@@ -180,12 +207,15 @@ def register(mcp: FastMCP) -> None:
                             f"{eg.gtin}-{eg.serial}-{eb.gtin}-{eb.serial}"
                             f"-{ecg.ecg_id.logical_index}"
                         )
-                    lines.append(
-                        f"    ECG: {ecg_label}  [{ecg_status}]  (ID: {ecg_id_str})"
-                    )
+                    if wants_property(requested, "ecgs"):
+                        lines.append(
+                            f"    ECG: {ecg_label}  [{ecg_status}]  (ID: {ecg_id_str})"
+                        )
+                    elif wants_property(requested, "ecg_ids"):
+                        lines.append(f"    ECG ID: {ecg_id_str}")
 
             # ECDs
-            if device.ecds:
+            if device.ecds and wants_property(requested, "ecds", "ecd_ids"):
                 for ecd in device.ecds:
                     ecd_label = (
                         ecd.label.value
@@ -205,9 +235,12 @@ def register(mcp: FastMCP) -> None:
                             f"{dg.gtin}-{dg.serial}-{db.gtin}-{db.serial}"
                             f"-{ecd.ecd_id.logical_index}"
                         )
-                    lines.append(
-                        f"    ECD: {ecd_label}  [{ecd_status}]  (ID: {ecd_id_str})"
-                    )
+                    if wants_property(requested, "ecds"):
+                        lines.append(
+                            f"    ECD: {ecd_label}  [{ecd_status}]  (ID: {ecd_id_str})"
+                        )
+                    elif wants_property(requested, "ecd_ids"):
+                        lines.append(f"    ECD ID: {ecd_id_str}")
 
             lines.append("")
 

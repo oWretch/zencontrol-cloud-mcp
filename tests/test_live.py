@@ -386,6 +386,28 @@ class TestGetLiveLightLevels:
         assert "groups" in result and "ecgs" in result
         live.subscribe_once.assert_not_called()
 
+    async def test_filters_properties(self):
+        live = MagicMock(spec=LiveClient)
+        live.subscribe_once = AsyncMock(
+            return_value=[
+                {
+                    "gatewayId": {"gtin": 565343546, "serial": "AABBCCDD"},
+                    "groups": [{"id": {"groupNumber": 5}, "value": 254}],
+                }
+            ]
+        )
+        ctx = _make_live_context(live)
+
+        result = await self._call(
+            ctx,
+            site_id="site-1",
+            target="groups",
+            properties="percent",
+        )
+        assert "100%" in result
+        assert "AABBCCDD" not in result
+        assert "arc" not in result
+
 
 # ---------------------------------------------------------------------------
 # get_sensor_readings tool
@@ -496,6 +518,39 @@ class TestGetSensorReadings:
         assert "between 1 and 30" in result
         live.subscribe_once.assert_not_called()
 
+    async def test_filters_properties(self):
+        live = MagicMock(spec=LiveClient)
+        live.subscribe_once = AsyncMock(
+            return_value=[
+                {
+                    "gatewayId": {"gtin": 100, "serial": "GW1"},
+                    "lightSensors": [
+                        {
+                            "id": {
+                                "busUnitGtin": 200,
+                                "busUnitSerial": "S1",
+                                "logicalIndex": 0,
+                                "instanceNumber": 1,
+                            },
+                            "value": 450,
+                            "isCalibrated": True,
+                        }
+                    ],
+                }
+            ]
+        )
+        ctx = _make_live_context(live)
+
+        result = await self._call(
+            ctx,
+            site_id="site-1",
+            sensor_type="light",
+            properties="value",
+        )
+        assert "450 lx" in result
+        assert "calibrated" not in result
+        assert "GW1" not in result
+
 
 # ---------------------------------------------------------------------------
 # get_system_variables tool
@@ -549,6 +604,26 @@ class TestGetSystemVariables:
         result = await self._call(ctx, site_id="site-1", duration=-5)
         assert "between 1 and 30" in result
         live.subscribe_once.assert_not_called()
+
+    async def test_filters_properties(self):
+        live = MagicMock(spec=LiveClient)
+        live.subscribe_once = AsyncMock(
+            return_value=[
+                {
+                    "gatewayId": {"gtin": 100, "serial": "GW1"},
+                    "systemVariables": [
+                        {"id": {"index": 3}, "signedValue": 5, "magnitude": 127}
+                    ],
+                }
+            ]
+        )
+        ctx = _make_live_context(live)
+
+        result = await self._call(ctx, site_id="site-1", properties="index")
+        assert "variable 3" in result
+        assert "signed=" not in result
+        assert "magnitude=" not in result
+        assert "GW1" not in result
 
 
 # ---------------------------------------------------------------------------

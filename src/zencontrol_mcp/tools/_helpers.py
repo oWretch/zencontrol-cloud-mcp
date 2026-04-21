@@ -20,6 +20,32 @@ logger = logging.getLogger(__name__)
 _BROAD_SCOPES = frozenset({"site", "tenancy", "floor"})
 
 
+def parse_requested_properties(properties: str | None) -> set[str] | None:
+    """Parse a comma-separated list of requested properties.
+
+    Returns ``None`` when no filter is supplied, meaning all fields should be
+    included.
+    """
+    if properties is None:
+        return None
+
+    requested = {
+        part.strip().lower().replace("-", "_")
+        for part in properties.split(",")
+        if part.strip()
+    }
+    return requested or None
+
+
+def wants_property(requested: set[str] | None, *aliases: str) -> bool:
+    """Return True when a field should be included for the property filter."""
+    if requested is None:
+        return True
+
+    normalized = {a.lower().replace("-", "_") for a in aliases}
+    return bool(requested & normalized)
+
+
 def _format_command_result(
     result: object,
     target_type: str,
