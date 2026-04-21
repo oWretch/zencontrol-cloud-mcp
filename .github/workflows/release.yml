@@ -57,7 +57,7 @@ jobs:
         run: |
           uv lock
           if ! git diff --quiet uv.lock; then
-            VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+            VERSION=$(uv run python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
             git add uv.lock
             git commit -m "chore(release): update uv.lock for $VERSION"
           fi
