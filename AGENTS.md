@@ -1,4 +1,4 @@
-# Copilot Instructions — zencontrol-mcp
+# Agent Instructions — zencontrol-mcp
 
 This is an MCP (Model Context Protocol) server that lets AI assistants control
 ZenControl DALI-2 lighting systems. Keep these conventions in mind when working
