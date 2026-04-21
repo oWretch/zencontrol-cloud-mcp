@@ -56,11 +56,6 @@ jobs:
         if: steps.version_check.outputs.changed == 'true'
         run: |
           uv lock
-          if ! git diff --quiet uv.lock; then
-            VERSION=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
-            git add uv.lock
-            git commit -m "chore(deps): update uv.lock for $VERSION"
-          fi
 
       - name: Build distribution
         if: steps.version_check.outputs.changed == 'true'
