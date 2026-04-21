@@ -65,9 +65,9 @@ dev = [
 version_variable = "src/zencontrol_cloud_mcp/__init__.py:__version__"
 branch = "main"
 upload_to_release = true
-build_command = "pip install build && python -m build"
+build_command = "uv run --with build python -m build"
 changelog_file = "CHANGELOG.md"
-commit_parser = "semantic_release.history.angular_parser"
+commit_parser = "semantic_release.commit_parser.angular:AngularCommitParser"
 # Angular parser is compatible with conventional commits
 parser_angular_patch_types = ["fix", "perf"]
 parser_angular_minor_types = ["feat"]

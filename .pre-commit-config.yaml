@@ -10,7 +10,7 @@ repos:
           - auth,api,tools,models,scope,resources,dev,docs,chore,ci
           # Omitting --force-scope keeps scope optional
 
-  # Python code formatting
+          # Python code formatting
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.11.0
     hooks:
