@@ -96,7 +96,7 @@ perf(api): cache site hierarchy queries
 docs: update README quick start
 chore(ci): update workflow dependencies
 chore(deps): bump authlib to 1.6.11
-chore(release): 1.0.1 [skip ci]
+chore(release): 1.0.1
 test(tests): add site hierarchy formatting coverage
 ```
 

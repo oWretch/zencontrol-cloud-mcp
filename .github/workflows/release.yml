@@ -7,8 +7,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Only run on main branch pushes, skip workflow commits
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
+    # Only run on main branch pushes, skip automated release commits
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !startsWith(github.event.head_commit.message, 'chore(release):')
     environment: pypi
     permissions:
       contents: write
@@ -50,6 +50,16 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update uv.lock for release
+        if: steps.version_check.outputs.changed == 'true'
+        run: |
+          uv lock
+          if ! git diff --quiet uv.lock; then
+            VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+            git add uv.lock
+            git commit -m "chore(release): update uv.lock for $VERSION"
           fi
 
       - name: Build distribution

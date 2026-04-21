@@ -124,8 +124,10 @@ When you merge to `main`:
 
 Breaking changes use `!` or include `BREAKING CHANGE:` in body.
 
-The automated version bump commit is configured as `chore(release): {version} [skip ci]`
-so it remains valid under commit linting and does not trigger the release workflow again.
+The automated version bump commit uses `chore(release): {version}` as the subject line
+and includes the configured body from `pyproject.toml`, so it remains valid under
+commit linting. The release workflow skips re-running on automated release commits
+by checking for the `chore(release):` prefix.
 
 ## Troubleshooting
 
