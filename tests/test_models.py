@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from zencontrol_mcp.models.schemas import (
+from zencontrol_cloud_mcp.models.schemas import (
     CommandTargetType,
     DaliCommand,
     DaliCommandType,
@@ -20,7 +20,6 @@ from zencontrol_mcp.models.schemas import (
     StringField,
     Tenancy,
 )
-
 
 # ---------------------------------------------------------------------------
 # Site model
@@ -94,20 +93,12 @@ class TestGroupModel:
 
     def test_group_id_validation(self):
         """GroupId enforces groupNumber 0-15."""
-        GroupId.model_validate(
-            {"gatewayId": {"gtin": 1, "serial": "A"}, "groupNumber": 0}
-        )
-        GroupId.model_validate(
-            {"gatewayId": {"gtin": 1, "serial": "A"}, "groupNumber": 15}
-        )
+        GroupId.model_validate({"gatewayId": {"gtin": 1, "serial": "A"}, "groupNumber": 0})
+        GroupId.model_validate({"gatewayId": {"gtin": 1, "serial": "A"}, "groupNumber": 15})
         with pytest.raises(ValidationError):
-            GroupId.model_validate(
-                {"gatewayId": {"gtin": 1, "serial": "A"}, "groupNumber": 16}
-            )
+            GroupId.model_validate({"gatewayId": {"gtin": 1, "serial": "A"}, "groupNumber": 16})
         with pytest.raises(ValidationError):
-            GroupId.model_validate(
-                {"gatewayId": {"gtin": 1, "serial": "A"}, "groupNumber": -1}
-            )
+            GroupId.model_validate({"gatewayId": {"gtin": 1, "serial": "A"}, "groupNumber": -1})
 
 
 # ---------------------------------------------------------------------------

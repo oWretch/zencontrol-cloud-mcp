@@ -126,10 +126,7 @@ class LiveClient:
                         while not started:
                             raw = await ws.recv()
                             msg = json.loads(raw)
-                            if (
-                                msg.get("type") == "START"
-                                and msg.get("id") == subscription_id
-                            ):
+                            if msg.get("type") == "START" and msg.get("id") == subscription_id:
                                 started = True
                             elif msg.get("type") == "ERROR":
                                 error = msg.get("error", {})
@@ -138,8 +135,8 @@ class LiveClient:
                                     f"[{error.get('code')}] {error.get('message')}",
                                     code=error.get("code"),
                                 )
-                except TimeoutError:
-                    raise LiveAPIError("Timed out waiting for subscription START")
+                except TimeoutError as err:
+                    raise LiveAPIError("Timed out waiting for subscription START") from err
 
                 # Collect events for duration
                 try:
@@ -147,10 +144,7 @@ class LiveClient:
                         while len(events) < max_events:
                             raw = await ws.recv()
                             msg = json.loads(raw)
-                            if (
-                                msg.get("type") == "EVENT"
-                                and msg.get("id") == subscription_id
-                            ):
+                            if msg.get("type") == "EVENT" and msg.get("id") == subscription_id:
                                 events.append(msg.get("content", {}))
                             elif msg.get("type") == "END":
                                 break
@@ -185,13 +179,7 @@ class LiveClient:
         except websockets.exceptions.InvalidHandshake as exc:
             # HTTP-level rejection (e.g. 401 Unauthorized, 403 Forbidden)
             status = _extract_handshake_status(exc)
-            code = (
-                "UNAUTHORIZED"
-                if status == 401
-                else "FORBIDDEN"
-                if status == 403
-                else None
-            )
+            code = "UNAUTHORIZED" if status == 401 else "FORBIDDEN" if status == 403 else None
             status_text = str(status) if status is not None else "unknown"
             raise LiveAPIError(
                 f"Live API connection rejected (HTTP {status_text}): {exc}",

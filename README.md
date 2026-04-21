@@ -1,13 +1,13 @@
-# zencontrol-mcp
+# zencontrol-cloud-mcp
 
-MCP server for ZenControl DALI-2 lighting control.
+MCP server for ZenControl DALI-2 lighting control via the ZenControl Cloud API.
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
-![License: MIT](https://img.shields.io/badge/license-MIT-green)
+![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)
 
 ## Overview
 
-**zencontrol-mcp** enables AI assistants — such as Claude, Cursor, and other
+**zencontrol-cloud-mcp** enables AI assistants — such as Claude, Cursor, and other
 MCP-compatible clients — to discover and control
 [ZenControl](https://zencontrol.com/) DALI-2 lighting systems through natural
 language.
@@ -18,12 +18,6 @@ transports:
 
 - **stdio** — for local, single-user setups (Claude Desktop, Cursor, etc.)
 - **StreamableHTTP** — for hosted / multi-user deployments
-
-## Documentation
-
-- User guide: this README
-- Maintainer guide: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Coding agent guidance: [AGENTS.md](AGENTS.md)
 
 ## Features
 
@@ -56,7 +50,7 @@ transports:
 2. **Run with `uvx`:**
 
    ```bash
-   uvx zencontrol-mcp
+  uvx zencontrol-cloud-mcp
    ```
 
    On first launch a browser window will open so you can log in to ZenControl.
@@ -73,7 +67,7 @@ Add the following to your Claude Desktop configuration file:
   "mcpServers": {
     "zencontrol": {
       "command": "uvx",
-      "args": ["zencontrol-mcp"],
+      "args": ["zencontrol-cloud-mcp"],
       "env": {
         "ZENCONTROL_CLIENT_ID": "your_client_id",
         "ZENCONTROL_CLIENT_SECRET": "your_client_secret"
@@ -88,7 +82,7 @@ Add the following to your Claude Desktop configuration file:
 Start the server on a network port:
 
 ```bash
-uvx zencontrol-mcp --transport streamable-http --port 9000
+uvx zencontrol-cloud-mcp --transport streamable-http --port 9000
 ```
 
 Then point your MCP client at the HTTP endpoint:
@@ -177,7 +171,7 @@ User: "Change the lobby to warm white (3000K)"
 ```mermaid
 graph LR
     Client["MCP Client<br/>(Claude, Cursor, …)"]
-    Server["zencontrol-mcp<br/>FastMCP Server"]
+    Server["zencontrol-cloud-mcp<br/>FastMCP Server"]
     API["ZenControl<br/>Cloud API"]
     Tokens["Encrypted<br/>Token Store"]
 
@@ -189,8 +183,8 @@ graph LR
 ## Development
 
 ```bash
-git clone https://github.com/oWretch/zencontrol-mcp.git
-cd zencontrol-mcp
+git clone https://github.com/oWretch/zencontrol-cloud-mcp.git
+cd zencontrol-cloud-mcp
 uv sync
 
 # Lint & format
@@ -223,4 +217,4 @@ responses.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [Apache License 2.0](LICENSE).

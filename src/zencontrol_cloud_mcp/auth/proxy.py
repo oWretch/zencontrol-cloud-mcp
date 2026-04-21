@@ -37,7 +37,7 @@ import logging
 import httpx
 from fastmcp.server.auth import AccessToken, RemoteAuthProvider, TokenVerifier
 
-from zencontrol_mcp.auth.oauth import AUTHORIZE_URL
+from zencontrol_cloud_mcp.auth.oauth import AUTHORIZE_URL
 
 logger = logging.getLogger(__name__)
 

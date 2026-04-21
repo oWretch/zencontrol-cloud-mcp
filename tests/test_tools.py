@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-
-from zencontrol_mcp.models.schemas import DaliCommandType
-from zencontrol_mcp.scope import ScopeConstraint
-from zencontrol_mcp.tools.control import _ACTION_MAP, _pct_to_dali
-
+from zencontrol_cloud_mcp.models.schemas import DaliCommandType
+from zencontrol_cloud_mcp.scope import ScopeConstraint
+from zencontrol_cloud_mcp.tools.control import _ACTION_MAP, _pct_to_dali
 
 # ---------------------------------------------------------------------------
 # Helper to build a mock context with a mock API
@@ -102,7 +100,7 @@ class TestControlLight:
         """Import and call the control_light tool registered on a temporary FastMCP."""
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.control import register
+        from zencontrol_cloud_mcp.tools.control import register
 
         mcp = FastMCP("test")
         register(mcp)
@@ -242,7 +240,7 @@ class TestSetColour:
     async def _call_set_colour(self, ctx, **kwargs):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.control import register
+        from zencontrol_cloud_mcp.tools.control import register
 
         mcp = FastMCP("test")
         register(mcp)
@@ -396,7 +394,7 @@ class TestListSites:
     async def _call_list_sites(self, ctx):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.sites import register
+        from zencontrol_cloud_mcp.tools.sites import register
 
         mcp = FastMCP("test")
         register(mcp)
@@ -406,7 +404,7 @@ class TestListSites:
     async def _call_list_sites_with_properties(self, ctx, properties: str):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.sites import register
+        from zencontrol_cloud_mcp.tools.sites import register
 
         mcp = FastMCP("test")
         register(mcp)
@@ -420,7 +418,7 @@ class TestListSites:
         assert "No sites found" in result
 
     async def test_list_sites_with_data(self, sample_site):
-        from zencontrol_mcp.models.schemas import Site
+        from zencontrol_cloud_mcp.models.schemas import Site
 
         site = Site.model_validate(sample_site)
         ctx, api = _make_mock_context()
@@ -432,7 +430,7 @@ class TestListSites:
         assert "Brisbane" in result
 
     async def test_list_sites_filters_properties(self, sample_site):
-        from zencontrol_mcp.models.schemas import Site
+        from zencontrol_cloud_mcp.models.schemas import Site
 
         site = Site.model_validate(sample_site)
         ctx, api = _make_mock_context()
@@ -453,7 +451,7 @@ class TestListGroups:
     async def _call_list_groups(self, ctx, **kwargs):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.devices import register
+        from zencontrol_cloud_mcp.tools.devices import register
 
         mcp = FastMCP("test")
         register(mcp)
@@ -463,19 +461,15 @@ class TestListGroups:
     async def test_list_groups_empty(self):
         ctx, api = _make_mock_context()
         api.list_groups = AsyncMock(return_value=[])
-        result = await self._call_list_groups(
-            ctx, scope_type="site", scope_id="some-id"
-        )
+        result = await self._call_list_groups(ctx, scope_type="site", scope_id="some-id")
         assert "No groups found" in result
 
     async def test_list_groups_with_data(self, sample_group):
-        from zencontrol_mcp.models.schemas import Group
+        from zencontrol_cloud_mcp.models.schemas import Group
 
         group = Group.model_validate(sample_group)
         ctx, api = _make_mock_context()
         api.list_groups = AsyncMock(return_value=[group])
-        result = await self._call_list_groups(
-            ctx, scope_type="site", scope_id="some-id"
-        )
+        result = await self._call_list_groups(ctx, scope_type="site", scope_id="some-id")
         assert "Office 3.02" in result
         assert "565343546-AABBCCDD-5" in result

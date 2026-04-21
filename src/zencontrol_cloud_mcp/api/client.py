@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 if TYPE_CHECKING:
-    from zencontrol_mcp.auth.token_store import TokenStore
+    from zencontrol_cloud_mcp.auth.token_store import TokenStore
 
 logger = logging.getLogger(__name__)
 
@@ -136,9 +136,7 @@ class ZenControlClient:
     def _cache_put(self, key: tuple, content: bytes) -> None:
         """Store response content bytes, evicting oldest entry if at capacity."""
         if len(self._response_cache) >= self._MAX_CACHE_SIZE:
-            oldest_key = min(
-                self._response_cache, key=lambda k: self._response_cache[k][0]
-            )
+            oldest_key = min(self._response_cache, key=lambda k: self._response_cache[k][0])
             del self._response_cache[oldest_key]
         self._response_cache[key] = (time.monotonic(), content)
 
@@ -204,9 +202,7 @@ class ZenControlClient:
                 continue
 
             if response.status_code == 429:
-                retry_after = float(
-                    response.headers.get("Retry-After", str(2**attempt))
-                )
+                retry_after = float(response.headers.get("Retry-After", str(2**attempt)))
                 jitter = random.uniform(0, 1)  # noqa: S311
                 wait = retry_after + jitter
                 logger.warning("Rate limited (429), waiting %.1fs", wait)

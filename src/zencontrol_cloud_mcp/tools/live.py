@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastmcp import Context, FastMCP
 
-from zencontrol_mcp.api.live import LiveAPIError, LiveClient
-from zencontrol_mcp.api.rest import ZenControlAPI
-from zencontrol_mcp.tools._helpers import (
+from zencontrol_cloud_mcp.api.live import LiveAPIError, LiveClient
+from zencontrol_cloud_mcp.api.rest import ZenControlAPI
+from zencontrol_cloud_mcp.tools._helpers import (
     get_scope_constraint,
     parse_requested_properties,
     wants_property,
@@ -74,9 +74,7 @@ def register(mcp: FastMCP) -> None:
             return error
 
         live: LiveClient = ctx.lifespan_context["live"]
-        method = (
-            "event.group.arc-level" if target == "groups" else "event.ecg.arc-level"
-        )
+        method = "event.group.arc-level" if target == "groups" else "event.ecg.arc-level"
 
         try:
             events = await live.subscribe_once(
@@ -110,9 +108,7 @@ def register(mcp: FastMCP) -> None:
                     value = group.get("value", 0)
                     pct = value / 254 * 100
                     if requested is None:
-                        lines.append(
-                            f"  {gw_id} group {group_num}: {pct:.0f}% (arc {value})"
-                        )
+                        lines.append(f"  {gw_id} group {group_num}: {pct:.0f}% (arc {value})")
                         continue
 
                     parts: list[str] = ["  "]
@@ -136,9 +132,7 @@ def register(mcp: FastMCP) -> None:
                     pct = value / 254 * 100
                     ecg_target = f"ecg {bus_gtin}-{bus_serial}-{logical_idx}"
                     if requested is None:
-                        lines.append(
-                            f"  {gw_id} {ecg_target}: {pct:.0f}% (arc {value})"
-                        )
+                        lines.append(f"  {gw_id} {ecg_target}: {pct:.0f}% (arc {value})")
                         continue
 
                     parts = ["  "]
@@ -215,8 +209,7 @@ def register(mcp: FastMCP) -> None:
 
         if not events:
             return (
-                f"No {sensor_type} sensor events received from site {resolved_id} "
-                f"in {duration}s."
+                f"No {sensor_type} sensor events received from site {resolved_id} in {duration}s."
             )
 
         lines: list[str] = [
@@ -322,10 +315,7 @@ def register(mcp: FastMCP) -> None:
             return f"Live API error: {exc}"
 
         if not events:
-            return (
-                f"No system variable events received from site {resolved_id} "
-                f"in {duration}s."
-            )
+            return f"No system variable events received from site {resolved_id} in {duration}s."
 
         lines: list[str] = [
             f"Live system variable changes from site {resolved_id} "

@@ -55,20 +55,20 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 
-from zencontrol_mcp.api.client import ZenControlClient
-from zencontrol_mcp.api.live import LiveClient
-from zencontrol_mcp.api.rest import ZenControlAPI
-from zencontrol_mcp.auth.proxy import create_remote_auth_provider
-from zencontrol_mcp.auth.token_store import TokenStore
-from zencontrol_mcp.resources import hierarchy as hierarchy_resources
-from zencontrol_mcp.scope import ScopeConstraint
-from zencontrol_mcp.tools import register_all_tools
+from zencontrol_cloud_mcp.api.client import ZenControlClient
+from zencontrol_cloud_mcp.api.live import LiveClient
+from zencontrol_cloud_mcp.api.rest import ZenControlAPI
+from zencontrol_cloud_mcp.auth.proxy import create_remote_auth_provider
+from zencontrol_cloud_mcp.auth.token_store import TokenStore
+from zencontrol_cloud_mcp.resources import hierarchy as hierarchy_resources
+from zencontrol_cloud_mcp.scope import ScopeConstraint
+from zencontrol_cloud_mcp.tools import register_all_tools
 
 logger = logging.getLogger(__name__)
 
@@ -86,9 +86,7 @@ def _load_config(transport: str) -> dict[str, str]:
     by this server.
     """
     config: dict[str, str] = {
-        "redirect_uri": os.environ.get(
-            "ZENCONTROL_REDIRECT_URI", _DEFAULT_REDIRECT_URI
-        ),
+        "redirect_uri": os.environ.get("ZENCONTROL_REDIRECT_URI", _DEFAULT_REDIRECT_URI),
     }
 
     if transport == "stdio":

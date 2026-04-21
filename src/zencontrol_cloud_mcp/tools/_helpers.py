@@ -10,9 +10,9 @@ from fastmcp.server.elicitation import AcceptedElicitation
 if TYPE_CHECKING:
     from fastmcp import Context
 
-    from zencontrol_mcp.api.rest import ZenControlAPI
+    from zencontrol_cloud_mcp.api.rest import ZenControlAPI
 
-from zencontrol_mcp.scope import ScopeConstraint
+from zencontrol_cloud_mcp.scope import ScopeConstraint
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +30,7 @@ def parse_requested_properties(properties: str | None) -> set[str] | None:
         return None
 
     requested = {
-        part.strip().lower().replace("-", "_")
-        for part in properties.split(",")
-        if part.strip()
+        part.strip().lower().replace("-", "_") for part in properties.split(",") if part.strip()
     }
     return requested or None
 
@@ -55,9 +53,8 @@ def _format_command_result(
     """Format the result of a send_command call into a human-readable string."""
     if result is not None and hasattr(result, "errors") and result.errors:
         error_lines = [f"  • [{e.error_code}] {e.error_message}" for e in result.errors]
-        return (
-            f"Command '{action}' sent to {target_type} {target_id} "
-            f"with errors:\n" + "\n".join(error_lines)
+        return f"Command '{action}' sent to {target_type} {target_id} with errors:\n" + "\n".join(
+            error_lines
         )
     return f"Successfully sent '{action}' command to {target_type} {target_id}."
 

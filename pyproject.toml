@@ -1,10 +1,21 @@
 [project]
-name = "zencontrol-mcp"
+name = "zencontrol-cloud-mcp"
 version = "0.1.0"
 description = "MCP server for ZenControl DALI-2 lighting control via the ZenControl Cloud API"
 readme = "README.md"
 authors = [
     { name = "Jerome Brown", email = "Jerome@SoliDeoGloria.tech" }
+]
+license = { text = "Apache-2.0" }
+keywords = ["mcp", "dali", "lighting", "zencontrol", "iot"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Home Automation",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 requires-python = ">=3.11"
 dependencies = [
@@ -17,13 +28,22 @@ dependencies = [
     "python-dotenv>=1.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/oWretch/zencontrol-cloud-mcp"
+Documentation = "https://github.com/oWretch/zencontrol-cloud-mcp#readme"
+Repository = "https://github.com/oWretch/zencontrol-cloud-mcp.git"
+"Bug Tracker" = "https://github.com/oWretch/zencontrol-cloud-mcp/issues"
+
 [project.scripts]
-zencontrol-mcp = "zencontrol_mcp.server:main"
-zencontrol-mcp-watch = "zencontrol_mcp.dev:main"
+zencontrol-cloud-mcp = "zencontrol_cloud_mcp.server:main"
+zencontrol-cloud-mcp-watch = "zencontrol_cloud_mcp.dev:main"
 
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "zencontrol_cloud_mcp"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -35,4 +55,50 @@ dev = [
     "pytest-asyncio>=0.25",
     "respx>=0.22",
     "ruff>=0.11",
+    "python-semantic-release>=9.0",
+    "commitizen>=3.0",
+    "pre-commit>=3.0",
+    "pyright>=1.1",
 ]
+
+[tool.semantic_release]
+version_variable = "src/zencontrol_cloud_mcp/__init__.py:__version__"
+branch = "main"
+upload_to_release = true
+build_command = "pip install build && python -m build"
+changelog_file = "CHANGELOG.md"
+commit_parser = "semantic_release.history.angular_parser"
+# Angular parser is compatible with conventional commits
+parser_angular_patch_types = ["fix", "perf"]
+parser_angular_minor_types = ["feat"]
+parser_angular_major_types = []
+
+[tool.semantic_release.commit_parser_options]
+# Break on these keywords to trigger major bumps
+major_on_keyword = ["BREAKING CHANGE", "BREAKING"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["zencontrol_cloud_mcp"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0"
+version_files = [
+    "src/zencontrol_cloud_mcp/__init__.py:__version__",
+    "pyproject.toml:version"
+]
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"

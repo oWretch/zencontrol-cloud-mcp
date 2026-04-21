@@ -12,7 +12,6 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
 # ---------------------------------------------------------------------------
 # Helper enums
 # ---------------------------------------------------------------------------
@@ -223,9 +222,7 @@ class Site(BaseModel):
     udp_enabled: bool | None = Field(default=None, alias="udpEnabled")
     building_size: float | None = Field(default=None, alias="buildingSize")
     address: Address | None = None
-    geographic_location: GeographicLocation | None = Field(
-        default=None, alias="geographicLocation"
-    )
+    geographic_location: GeographicLocation | None = Field(default=None, alias="geographicLocation")
 
 
 class Floor(BaseModel):
@@ -465,9 +462,7 @@ class OverrideType(BaseModel):
     colour: bool | None = None
     intensity: bool | None = None
     switch: bool | None = None
-    inhibit_without_switch: bool | None = Field(
-        default=None, alias="inhibitWithoutSwitch"
-    )
+    inhibit_without_switch: bool | None = Field(default=None, alias="inhibitWithoutSwitch")
     inhibit_with_switch: bool | None = Field(default=None, alias="inhibitWithSwitch")
 
 
@@ -485,9 +480,7 @@ class DaliCommand(BaseModel):
     level: int | None = Field(default=None, ge=0, le=255)
     fast_fade: bool | None = Field(default=None, alias="fastFade")
     scene: int | None = Field(default=None, ge=0, le=15)
-    profile_number: int | None = Field(
-        default=None, alias="profileNumber", ge=0, le=65535
-    )
+    profile_number: int | None = Field(default=None, alias="profileNumber", ge=0, le=65535)
     temperature: int | None = Field(default=None, ge=0, le=65534)
     x: int | None = None
     y: int | None = None

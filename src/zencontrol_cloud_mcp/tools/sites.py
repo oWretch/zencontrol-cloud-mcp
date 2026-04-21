@@ -6,8 +6,8 @@ import asyncio
 
 from fastmcp import Context, FastMCP
 
-from zencontrol_mcp.api.rest import ZenControlAPI
-from zencontrol_mcp.tools._helpers import (
+from zencontrol_cloud_mcp.api.rest import ZenControlAPI
+from zencontrol_cloud_mcp.tools._helpers import (
     get_scope_constraint,
     parse_requested_properties,
     wants_property,
@@ -156,9 +156,7 @@ def register(mcp: FastMCP) -> None:
             lon = site.geographic_location.longitude
             if lat is not None and lon is not None:
                 lines.append(f"Coordinates: {lat}, {lon}")
-        if site.building_size is not None and wants_property(
-            requested, "building_size"
-        ):
+        if site.building_size is not None and wants_property(requested, "building_size"):
             lines.append(f"Building size: {site.building_size}")
 
         # Floors
@@ -166,11 +164,7 @@ def register(mcp: FastMCP) -> None:
             lines.append(f"\nFloors ({len(floors)}):")
             if floors:
                 for floor in floors:
-                    label = (
-                        floor.label.value
-                        if floor.label and floor.label.value
-                        else "Unlabelled"
-                    )
+                    label = floor.label.value if floor.label and floor.label.value else "Unlabelled"
                     lines.append(f"  • {label}  (ID: {floor.floor_id})")
             else:
                 lines.append("  (none)")
@@ -185,15 +179,9 @@ def register(mcp: FastMCP) -> None:
                         if tenancy.label and tenancy.label.value
                         else "Unlabelled"
                     )
-                    status = (
-                        tenancy.status.value
-                        if tenancy.status and tenancy.status.value
-                        else ""
-                    )
+                    status = tenancy.status.value if tenancy.status and tenancy.status.value else ""
                     status_str = f"  [{status}]" if status else ""
-                    lines.append(
-                        f"  • {label}{status_str}  (ID: {tenancy.tenancy_id})"
-                    )
+                    lines.append(f"  • {label}{status_str}  (ID: {tenancy.tenancy_id})")
             else:
                 lines.append("  (none)")
 
@@ -202,14 +190,8 @@ def register(mcp: FastMCP) -> None:
             lines.append(f"\nZones ({len(zones)}):")
             if zones:
                 for zone in zones:
-                    label = (
-                        zone.label.value
-                        if zone.label and zone.label.value
-                        else "Unlabelled"
-                    )
-                    status = (
-                        zone.status.value if zone.status and zone.status.value else ""
-                    )
+                    label = zone.label.value if zone.label and zone.label.value else "Unlabelled"
+                    status = zone.status.value if zone.status and zone.status.value else ""
                     status_str = f"  [{status}]" if status else ""
                     lines.append(f"  • {label}{status_str}  (ID: {zone.zone_id})")
             else:
@@ -220,9 +202,7 @@ def register(mcp: FastMCP) -> None:
             lines.append(f"\nGateways ({len(gateways)}):")
             if gateways:
                 for gw in gateways:
-                    label = (
-                        gw.label.value if gw.label and gw.label.value else "Unlabelled"
-                    )
+                    label = gw.label.value if gw.label and gw.label.value else "Unlabelled"
                     gw_id_str = ""
                     if gw.gateway_id:
                         gw_id_str = f"{gw.gateway_id.gtin}-{gw.gateway_id.serial}"

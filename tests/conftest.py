@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from zencontrol_mcp.api.rest import ZenControlAPI
-from zencontrol_mcp.scope import ScopeConstraint
+from zencontrol_cloud_mcp.api.rest import ZenControlAPI
+from zencontrol_cloud_mcp.scope import ScopeConstraint
 
 
 @pytest.fixture

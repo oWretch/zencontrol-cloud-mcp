@@ -8,9 +8,8 @@ import httpx
 import pytest
 import respx
 
-from zencontrol_mcp.api.client import ZenControlClient
-from zencontrol_mcp.api.rest import ZenControlAPI
-
+from zencontrol_cloud_mcp.api.client import ZenControlClient
+from zencontrol_cloud_mcp.api.rest import ZenControlAPI
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -143,9 +142,9 @@ class TestListGroupsUrlConstruction:
     @pytest.mark.asyncio
     @respx.mock
     async def test_gateway_scope(self, api_client):
-        route = respx.get(
-            "https://api.zencontrol.com/v2/gateways/gtin-serial/groups"
-        ).mock(return_value=httpx.Response(200, json={"groups": []}))
+        route = respx.get("https://api.zencontrol.com/v2/gateways/gtin-serial/groups").mock(
+            return_value=httpx.Response(200, json={"groups": []})
+        )
 
         await api_client.list_groups("gateway", "gtin-serial")
         assert route.called
@@ -158,9 +157,7 @@ class TestListGroupsUrlConstruction:
             return_value=httpx.Response(200, json={"groups": [GROUP_WITH_PERMISSIONS]})
         )
 
-        groups = await api_client.list_groups(
-            "site", "site-abc", permission_group="ALL"
-        )
+        groups = await api_client.list_groups("site", "site-abc", permission_group="ALL")
 
         request = route.calls.last.request
         assert b"permissionGroup=ALL" in request.url.query
@@ -231,11 +228,11 @@ class TestSendCommand:
     @pytest.mark.asyncio
     @respx.mock
     async def test_off_command_body(self, api_client):
-        from zencontrol_mcp.models.schemas import DaliCommand, DaliCommandType
+        from zencontrol_cloud_mcp.models.schemas import DaliCommand, DaliCommandType
 
-        route = respx.post(
-            "https://api.zencontrol.com/v1/groups/gtin-serial-5/command"
-        ).mock(return_value=httpx.Response(200, json={}))
+        route = respx.post("https://api.zencontrol.com/v1/groups/gtin-serial-5/command").mock(
+            return_value=httpx.Response(200, json={})
+        )
 
         cmd = DaliCommand(type=DaliCommandType.OFF)
         await api_client.send_command("group", "gtin-serial-5", cmd)
@@ -251,7 +248,7 @@ class TestSendCommand:
     @pytest.mark.asyncio
     @respx.mock
     async def test_set_level_command_body(self, api_client):
-        from zencontrol_mcp.models.schemas import DaliCommand, DaliCommandType
+        from zencontrol_cloud_mcp.models.schemas import DaliCommand, DaliCommandType
 
         route = respx.post("https://api.zencontrol.com/v1/groups/g-id/command").mock(
             return_value=httpx.Response(200, json={})
@@ -270,7 +267,7 @@ class TestSendCommand:
     @pytest.mark.asyncio
     @respx.mock
     async def test_colour_temperature_body_uses_alias(self, api_client):
-        from zencontrol_mcp.models.schemas import DaliCommand, DaliCommandType
+        from zencontrol_cloud_mcp.models.schemas import DaliCommand, DaliCommandType
 
         route = respx.post("https://api.zencontrol.com/v1/sites/s-id/command").mock(
             return_value=httpx.Response(200, json={})
@@ -288,7 +285,7 @@ class TestSendCommand:
 
     @pytest.mark.asyncio
     async def test_invalid_target_type_raises(self, api_client):
-        from zencontrol_mcp.models.schemas import DaliCommand, DaliCommandType
+        from zencontrol_cloud_mcp.models.schemas import DaliCommand, DaliCommandType
 
         cmd = DaliCommand(type=DaliCommandType.OFF)
         with pytest.raises(ValueError, match="Unknown command target type"):
@@ -305,9 +302,9 @@ class TestListDeviceLocations:
     @pytest.mark.asyncio
     @respx.mock
     async def test_site_scope_url(self, api_client):
-        route = respx.get(
-            "https://api.zencontrol.com/v2/sites/s-id/device-locations"
-        ).mock(return_value=httpx.Response(200, json={"deviceLocations": []}))
+        route = respx.get("https://api.zencontrol.com/v2/sites/s-id/device-locations").mock(
+            return_value=httpx.Response(200, json={"deviceLocations": []})
+        )
 
         await api_client.list_device_locations("site", "s-id")
         assert route.called
@@ -316,9 +313,9 @@ class TestListDeviceLocations:
     @pytest.mark.asyncio
     @respx.mock
     async def test_permission_group_passed(self, api_client):
-        route = respx.get(
-            "https://api.zencontrol.com/v2/sites/s-id/device-locations"
-        ).mock(return_value=httpx.Response(200, json={"deviceLocations": []}))
+        route = respx.get("https://api.zencontrol.com/v2/sites/s-id/device-locations").mock(
+            return_value=httpx.Response(200, json={"deviceLocations": []})
+        )
 
         await api_client.list_device_locations("site", "s-id", permission_group="ALL")
 

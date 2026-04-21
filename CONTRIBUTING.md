@@ -1,4 +1,4 @@
-# Contributing to zencontrol-mcp
+# Contributing to zencontrol-cloud-mcp
 
 Thanks for your interest in contributing! This guide covers everything you need
 to get started.
@@ -8,8 +8,8 @@ to get started.
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/oWretch/zencontrol-mcp.git
-   cd zencontrol-mcp
+   git clone https://github.com/oWretch/zencontrol-cloud-mcp.git
+   cd zencontrol-cloud-mcp
    ```
 
 2. **Install dependencies (including dev tools):**
@@ -21,7 +21,17 @@ to get started.
    This installs all runtime and development dependencies in an isolated virtual
    environment.
 
-3. **Copy the environment template:**
+3. **Set up pre-commit hooks:**
+
+   ```bash
+   uv run pre-commit install --hook-type commit-msg --hook-type pre-commit
+   ```
+
+   This ensures conventional commits and code quality checks run before each
+   commit. You can bypass hooks with `git commit --no-verify` if needed (not
+   recommended).
+
+4. **Copy the environment template:**
 
    ```bash
    cp .env.example .env
@@ -51,10 +61,49 @@ uv run ruff check --fix src/ tests/
 uv run ruff format src/ tests/
 ```
 
+## Commit Messages
+
+This project uses **Conventional Commits** for semantic versioning. Commit
+messages determine whether a release is a patch, minor, or major bump.
+
+**Format:** `type(scope): description`
+
+Valid types:
+- `feat` — New feature (minor bump: 0.1.0 → 0.2.0)
+- `fix` — Bug fix (patch bump: 0.1.0 → 0.1.1)
+- `perf` — Performance improvement (patch bump)
+- `docs` — Documentation only (no version bump)
+- `chore` — Maintenance (no version bump)
+- `refactor` — Code restructuring (no version bump)
+- `test` — Test additions (no version bump)
+- `style` — Formatting, whitespace (no version bump)
+- `ci` — CI/CD updates (no version bump)
+
+Optional scopes: `auth`, `api`, `tools`, `models`, `scope`, `resources`, `dev`
+
+**Breaking changes** trigger a major bump (0.1.0 → 1.0.0):
+```
+feat!: redesign lighting control API
+
+BREAKING CHANGE: The control_light() signature has changed
+```
+
+**Examples:**
+```
+feat(tools): add colour temperature control
+fix(auth): resolve OAuth token refresh race condition
+perf(api): cache site hierarchy queries
+docs: update README quick start
+chore(ci): update workflow dependencies
+```
+
+Pre-commit hooks validate your commit messages before they're created. If a
+commit is rejected, check the error message and adjust the message format.
+
 ## Project Structure
 
 ```text
-src/zencontrol_mcp/
+src/zencontrol_cloud_mcp/
 ├── server.py          # FastMCP server setup, lifespan, CLI entry point
 ├── tools/             # MCP tool definitions (one file per domain)
 │   ├── __init__.py    # register_all_tools() — imports all tool modules
@@ -74,7 +123,7 @@ src/zencontrol_mcp/
 
 ## Adding a New Tool
 
-1. **Create a file** in `src/zencontrol_mcp/tools/` (or add to an existing one
+1. **Create a file** in `src/zencontrol_cloud_mcp/tools/` (or add to an existing one
    if the tool fits an existing domain).
 
 2. **Define a `register(mcp)` function** that uses `@mcp.tool()` to register
@@ -89,7 +138,7 @@ src/zencontrol_mcp/
 
    if TYPE_CHECKING:
        from fastmcp import FastMCP
-       from zencontrol_mcp.api.rest import ZenControlAPI
+       from zencontrol_cloud_mcp.api.rest import ZenControlAPI
 
 
    def register(mcp: FastMCP) -> None:
@@ -102,10 +151,10 @@ src/zencontrol_mcp/
    ```
 
 3. **Import and call** your register function in
-   `src/zencontrol_mcp/tools/__init__.py`:
+   `src/zencontrol_cloud_mcp/tools/__init__.py`:
 
    ```python
-   from zencontrol_mcp.tools.my_module import register as register_my_tools
+   from zencontrol_cloud_mcp.tools.my_module import register as register_my_tools
 
    def register_all_tools(mcp: FastMCP) -> None:
        ...
@@ -209,12 +258,12 @@ and long-term project consistency.
 
 ### Architecture Snapshot
 
-- Entry point: `src/zencontrol_mcp/server.py`
-- REST client layer: `src/zencontrol_mcp/api/client.py`, `src/zencontrol_mcp/api/rest.py`
-- Live API websocket layer: `src/zencontrol_mcp/api/live.py`
-- Auth/token storage: `src/zencontrol_mcp/auth/`
-- Tool registration and surface area: `src/zencontrol_mcp/tools/`
-- Models/schemas: `src/zencontrol_mcp/models/schemas.py`
+- Entry point: `src/zencontrol_cloud_mcp/server.py`
+- REST client layer: `src/zencontrol_cloud_mcp/api/client.py`, `src/zencontrol_cloud_mcp/api/rest.py`
+- Live API websocket layer: `src/zencontrol_cloud_mcp/api/live.py`
+- Auth/token storage: `src/zencontrol_cloud_mcp/auth/`
+- Tool registration and surface area: `src/zencontrol_cloud_mcp/tools/`
+- Models/schemas: `src/zencontrol_cloud_mcp/models/schemas.py`
 
 ### Standard Local Validation
 

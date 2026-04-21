@@ -6,9 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from zencontrol_mcp.scope import ScopeConstraint
-from zencontrol_mcp.tools._helpers import confirm_broad_command, get_scope_constraint
-
+from zencontrol_cloud_mcp.scope import ScopeConstraint
+from zencontrol_cloud_mcp.tools._helpers import confirm_broad_command, get_scope_constraint
 
 # ===========================================================================
 # ScopeConstraint unit tests
@@ -137,9 +136,7 @@ class TestConfirmBroadCommand:
         from fastmcp.server.elicitation import AcceptedElicitation
 
         ctx = MagicMock()
-        ctx.elicit = AsyncMock(
-            return_value=AcceptedElicitation(action="accept", data=True)
-        )
+        ctx.elicit = AsyncMock(return_value=AcceptedElicitation(action="accept", data=True))
         result = await confirm_broad_command(ctx, "site", "site-1", "off")
         assert result is None
         ctx.elicit.assert_called_once()
@@ -169,9 +166,7 @@ class TestConfirmBroadCommand:
         from fastmcp.server.elicitation import AcceptedElicitation
 
         ctx = MagicMock()
-        ctx.elicit = AsyncMock(
-            return_value=AcceptedElicitation(action="accept", data=False)
-        )
+        ctx.elicit = AsyncMock(return_value=AcceptedElicitation(action="accept", data=False))
         result = await confirm_broad_command(ctx, "tenancy", "t-1", "on")
         assert result is not None
         assert "cancelled" in result.lower()
@@ -188,9 +183,7 @@ class TestConfirmBroadCommand:
         from fastmcp.server.elicitation import AcceptedElicitation
 
         ctx = MagicMock()
-        ctx.elicit = AsyncMock(
-            return_value=AcceptedElicitation(action="accept", data=True)
-        )
+        ctx.elicit = AsyncMock(return_value=AcceptedElicitation(action="accept", data=True))
         await confirm_broad_command(ctx, "site", "site-abc", "dim_down")
         call_args = ctx.elicit.call_args
         message = call_args.args[0]
@@ -217,7 +210,7 @@ class TestResolveSiteIdentifier:
 
     @pytest.mark.asyncio
     async def test_resolves_uuid_directly(self):
-        from zencontrol_mcp.api.rest import ZenControlAPI
+        from zencontrol_cloud_mcp.api.rest import ZenControlAPI
 
         api = MagicMock(spec=ZenControlAPI)
         site = self._make_site("3b5b2c02-0e43-423f-9719-758ab3fcb456", tag="hq")
@@ -233,7 +226,7 @@ class TestResolveSiteIdentifier:
 
     @pytest.mark.asyncio
     async def test_resolves_by_tag(self):
-        from zencontrol_mcp.api.rest import ZenControlAPI
+        from zencontrol_cloud_mcp.api.rest import ZenControlAPI
 
         api = MagicMock(spec=ZenControlAPI)
         site_a = self._make_site("uuid-a", tag="alpha-site", name="Alpha Site")
@@ -246,7 +239,7 @@ class TestResolveSiteIdentifier:
 
     @pytest.mark.asyncio
     async def test_resolves_by_name_case_insensitive(self):
-        from zencontrol_mcp.api.rest import ZenControlAPI
+        from zencontrol_cloud_mcp.api.rest import ZenControlAPI
 
         api = MagicMock(spec=ZenControlAPI)
         site = self._make_site("uuid-x", tag=None, name="Brown Home")
@@ -257,7 +250,7 @@ class TestResolveSiteIdentifier:
 
     @pytest.mark.asyncio
     async def test_tag_match_precedes_name_match(self):
-        from zencontrol_mcp.api.rest import ZenControlAPI
+        from zencontrol_cloud_mcp.api.rest import ZenControlAPI
 
         api = MagicMock(spec=ZenControlAPI)
         # site_a.name happens to equal identifier, but site_b.tag is exact match
@@ -270,7 +263,7 @@ class TestResolveSiteIdentifier:
 
     @pytest.mark.asyncio
     async def test_raises_value_error_if_not_found(self):
-        from zencontrol_mcp.api.rest import ZenControlAPI
+        from zencontrol_cloud_mcp.api.rest import ZenControlAPI
 
         api = MagicMock(spec=ZenControlAPI)
         api.list_sites = AsyncMock(return_value=[])
@@ -286,7 +279,7 @@ class TestScopeTools:
     async def _get_tool_fn(name: str):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.scope import register
+        from zencontrol_cloud_mcp.tools.scope import register
 
         mcp = FastMCP("test")
         register(mcp)
@@ -340,9 +333,7 @@ class TestScopeTools:
         ctx = MagicMock()
         ctx.lifespan_context = {"api": api, "scope": scope}
 
-        result = await fn(
-            ctx=ctx, site_identifier="3b5b2c02-0e43-423f-9719-758ab3fcb456"
-        )
+        result = await fn(ctx=ctx, site_identifier="3b5b2c02-0e43-423f-9719-758ab3fcb456")
         assert "hq-office" in result
         assert scope.site_id == "3b5b2c02-0e43-423f-9719-758ab3fcb456"
 
@@ -411,7 +402,7 @@ class TestScopeEnforcementInTools:
     async def test_control_light_blocks_wrong_site(self):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.control import register
+        from zencontrol_cloud_mcp.tools.control import register
 
         mcp = FastMCP("test")
         register(mcp)
@@ -429,7 +420,7 @@ class TestScopeEnforcementInTools:
     async def test_control_light_allows_matching_site(self):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.control import register
+        from zencontrol_cloud_mcp.tools.control import register
 
         mcp = FastMCP("test")
         register(mcp)
@@ -439,9 +430,7 @@ class TestScopeEnforcementInTools:
         from fastmcp.server.elicitation import AcceptedElicitation
 
         ctx = self._ctx_with_scope(scope_site="the-site")
-        ctx.elicit = AsyncMock(
-            return_value=AcceptedElicitation(action="accept", data=True)
-        )
+        ctx.elicit = AsyncMock(return_value=AcceptedElicitation(action="accept", data=True))
         result = await fn(
             ctx=ctx,
             target_type="site",
@@ -453,7 +442,7 @@ class TestScopeEnforcementInTools:
     async def test_list_groups_blocks_wrong_site_scope(self):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.devices import register
+        from zencontrol_cloud_mcp.tools.devices import register
 
         mcp = FastMCP("test")
         register(mcp)
@@ -466,7 +455,7 @@ class TestScopeEnforcementInTools:
     async def test_list_groups_allows_non_site_scope(self):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.devices import register
+        from zencontrol_cloud_mcp.tools.devices import register
 
         mcp = FastMCP("test")
         register(mcp)

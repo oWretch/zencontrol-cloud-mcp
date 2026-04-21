@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-from zencontrol_mcp.models.schemas import (
+from zencontrol_cloud_mcp.models.schemas import (
     DaliCommandType,
     DaliId,
     DeviceId,
@@ -16,8 +16,7 @@ from zencontrol_mcp.models.schemas import (
     StatusField,
     StringField,
 )
-from zencontrol_mcp.scope import ScopeConstraint
-
+from zencontrol_cloud_mcp.scope import ScopeConstraint
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -47,7 +46,7 @@ async def _get_tool_fn(mcp, name: str):
 def _register_extended():
     from fastmcp import FastMCP
 
-    from zencontrol_mcp.tools.extended import register
+    from zencontrol_cloud_mcp.tools.extended import register
 
     mcp = FastMCP("test")
     register(mcp)

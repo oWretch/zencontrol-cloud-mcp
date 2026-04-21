@@ -6,15 +6,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from zencontrol_mcp.models.schemas import (
+from zencontrol_cloud_mcp.models.schemas import (
     Floor,
     IntField,
     Scene,
     StatusField,
     StringField,
 )
-from zencontrol_mcp.scope import ScopeConstraint
-
+from zencontrol_cloud_mcp.scope import ScopeConstraint
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -50,7 +49,7 @@ async def _get_resource_fn(name: str):
     """
     from fastmcp import FastMCP
 
-    from zencontrol_mcp.resources.hierarchy import register
+    from zencontrol_cloud_mcp.resources.hierarchy import register
 
     mcp = FastMCP("test")
     register(mcp)

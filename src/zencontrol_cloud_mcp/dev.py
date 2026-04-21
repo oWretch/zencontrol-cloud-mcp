@@ -73,7 +73,7 @@ def describe_changes(
 
 def build_child_command(server_args: list[str]) -> list[str]:
     """Construct the child process command for the actual MCP server."""
-    return [sys.executable, "-m", "zencontrol_mcp.server", *server_args]
+    return [sys.executable, "-m", "zencontrol_cloud_mcp.server", *server_args]
 
 
 def terminate_child(process: subprocess.Popen[bytes] | None) -> None:
@@ -91,7 +91,7 @@ def terminate_child(process: subprocess.Popen[bytes] | None) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     """Watch the workspace and restart the stdio MCP server on changes."""
-    parser = argparse.ArgumentParser(description="Watch and restart zencontrol-mcp")
+    parser = argparse.ArgumentParser(description="Watch and restart zencontrol-cloud-mcp")
     parser.add_argument(
         "--watch-path",
         action="append",
@@ -115,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
     def request_stop(signum: int, _frame: object) -> None:
         nonlocal stop_requested
         stop_requested = True
-        print(f"[zencontrol-mcp-watch] Received signal {signum}; stopping.", file=sys.stderr)
+        print(f"[zencontrol-cloud-mcp-watch] Received signal {signum}; stopping.", file=sys.stderr)
 
     signal.signal(signal.SIGINT, request_stop)
     signal.signal(signal.SIGTERM, request_stop)
@@ -132,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
             if changes:
                 snapshot = current
                 print(
-                    "[zencontrol-mcp-watch] Restarting after changes: "
+                    "[zencontrol-cloud-mcp-watch] Restarting after changes: "
                     + ", ".join(changes[:5]),
                     file=sys.stderr,
                 )
@@ -142,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
 
             if process is not None and process.poll() is not None:
                 print(
-                    "[zencontrol-mcp-watch] Child exited; waiting for file changes before restart.",
+                    "[zencontrol-cloud-mcp-watch] Child exited; waiting for file changes before restart.",
                     file=sys.stderr,
                 )
                 process = None

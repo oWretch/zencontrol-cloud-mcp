@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from zencontrol_mcp.api.client import ZenControlClient
-from zencontrol_mcp.models.schemas import (
+from zencontrol_cloud_mcp.api.client import ZenControlClient
+from zencontrol_cloud_mcp.models.schemas import (
     AnalyticsResponse,
     ControlSystem,
     DaliCommand,
@@ -178,9 +178,7 @@ class ZenControlAPI:
 
         # Case-insensitive name match as fallback
         identifier_lower = identifier.lower()
-        name_matches = [
-            s for s in sites if s.name and s.name.lower() == identifier_lower
-        ]
+        name_matches = [s for s in sites if s.name and s.name.lower() == identifier_lower]
         if len(name_matches) == 1:
             return name_matches[0]
         if len(name_matches) > 1:
@@ -241,10 +239,7 @@ class ZenControlAPI:
         response = await self.client.get(url)
         response.raise_for_status()
         data: dict[str, Any] = response.json()
-        return [
-            ControlSystem.model_validate(cs)
-            for cs in data[_response_key("control-systems")]
-        ]
+        return [ControlSystem.model_validate(cs) for cs in data[_response_key("control-systems")]]
 
     async def list_groups(
         self,
@@ -322,10 +317,7 @@ class ZenControlAPI:
         response = await self.client.get(url, params=params or None)
         response.raise_for_status()
         data: dict[str, Any] = response.json()
-        return [
-            DeviceLocation.model_validate(dl)
-            for dl in data[_response_key("device-locations")]
-        ]
+        return [DeviceLocation.model_validate(dl) for dl in data[_response_key("device-locations")]]
 
     # ------------------------------------------------------------------
     # Profiles & Scenes
@@ -404,10 +396,7 @@ class ZenControlAPI:
         """
         scope_path = SCOPE_PATH_MAP.get(scope_type)
         if scope_path is None:
-            msg = (
-                f"Unknown scope type: {scope_type!r}. "
-                f"Health endpoints support: site, tenancy."
-            )
+            msg = f"Unknown scope type: {scope_type!r}. Health endpoints support: site, tenancy."
             raise ValueError(msg)
 
         url = f"/v1/{scope_path}/{scope_id}/ecgs/{metric}"

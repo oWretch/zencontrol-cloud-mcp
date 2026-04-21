@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastmcp import Context, FastMCP
 
-from zencontrol_mcp.api.rest import ZenControlAPI
-from zencontrol_mcp.tools._helpers import (
+from zencontrol_cloud_mcp.api.rest import ZenControlAPI
+from zencontrol_cloud_mcp.tools._helpers import (
     get_scope_constraint,
     parse_requested_properties,
     resolve_scope_id,
@@ -56,19 +56,11 @@ def register(mcp: FastMCP) -> None:
         if not groups:
             return f"No groups found in {scope_type} {resolved_id}."
 
-        lines: list[str] = [
-            f"Found {len(groups)} group(s) in {scope_type} {resolved_id}:\n"
-        ]
+        lines: list[str] = [f"Found {len(groups)} group(s) in {scope_type} {resolved_id}:\n"]
         for group in groups:
-            label = (
-                group.label.value if group.label and group.label.value else "Unlabelled"
-            )
-            group_type = (
-                group.type.value if group.type and group.type.value else "unknown"
-            )
-            status = (
-                group.status.value if group.status and group.status.value else "unknown"
-            )
+            label = group.label.value if group.label and group.label.value else "Unlabelled"
+            group_type = group.type.value if group.type and group.type.value else "unknown"
+            status = group.status.value if group.status and group.status.value else "unknown"
 
             # Build command target ID: gtin-serial-groupNumber
             target_id = "N/A"
@@ -81,12 +73,8 @@ def register(mcp: FastMCP) -> None:
             if group.permissions and group.permissions.group:
                 lighting = group.permissions.group.lighting
                 aggregate = group.permissions.group.aggregate
-                can_control = (lighting and lighting.write) or (
-                    aggregate and aggregate.write
-                )
-                can_read = (lighting and lighting.read) or (
-                    aggregate and aggregate.read
-                )
+                can_control = (lighting and lighting.write) or (aggregate and aggregate.write)
+                can_read = (lighting and lighting.read) or (aggregate and aggregate.read)
                 if can_control:
                     perm_tag = "  [can control]"
                 elif can_read:
@@ -143,28 +131,14 @@ def register(mcp: FastMCP) -> None:
         if not devices:
             return f"No devices found in {scope_type} {resolved_id}."
 
-        lines: list[str] = [
-            f"Found {len(devices)} device(s) in {scope_type} {resolved_id}:\n"
-        ]
+        lines: list[str] = [f"Found {len(devices)} device(s) in {scope_type} {resolved_id}:\n"]
         for device in devices:
-            label = (
-                device.label.value
-                if device.label and device.label.value
-                else "Unlabelled"
-            )
-            status = (
-                device.status.value
-                if device.status and device.status.value
-                else "unknown"
-            )
+            label = device.label.value if device.label and device.label.value else "Unlabelled"
+            status = device.status.value if device.status and device.status.value else "unknown"
 
             # Build device identifier string
             dev_id_str = "N/A"
-            if (
-                device.device_id
-                and device.device_id.gateway_id
-                and device.device_id.bus_unit_id
-            ):
+            if device.device_id and device.device_id.gateway_id and device.device_id.bus_unit_id:
                 gw = device.device_id.gateway_id
                 bu = device.device_id.bus_unit_id
                 dev_id_str = f"{gw.gtin}-{gw.serial}-{bu.gtin}-{bu.serial}"
@@ -190,15 +164,9 @@ def register(mcp: FastMCP) -> None:
             if device.ecgs and wants_property(requested, "ecgs", "ecg_ids"):
                 for ecg in device.ecgs:
                     ecg_label = (
-                        ecg.label.value
-                        if ecg.label and ecg.label.value
-                        else "Unlabelled ECG"
+                        ecg.label.value if ecg.label and ecg.label.value else "Unlabelled ECG"
                     )
-                    ecg_status = (
-                        ecg.status.value
-                        if ecg.status and ecg.status.value
-                        else "unknown"
-                    )
+                    ecg_status = ecg.status.value if ecg.status and ecg.status.value else "unknown"
                     ecg_id_str = "N/A"
                     if ecg.ecg_id and ecg.ecg_id.gateway_id and ecg.ecg_id.bus_unit_id:
                         eg = ecg.ecg_id.gateway_id
@@ -208,9 +176,7 @@ def register(mcp: FastMCP) -> None:
                             f"-{ecg.ecg_id.logical_index}"
                         )
                     if wants_property(requested, "ecgs"):
-                        lines.append(
-                            f"    ECG: {ecg_label}  [{ecg_status}]  (ID: {ecg_id_str})"
-                        )
+                        lines.append(f"    ECG: {ecg_label}  [{ecg_status}]  (ID: {ecg_id_str})")
                     elif wants_property(requested, "ecg_ids"):
                         lines.append(f"    ECG ID: {ecg_id_str}")
 
@@ -218,15 +184,9 @@ def register(mcp: FastMCP) -> None:
             if device.ecds and wants_property(requested, "ecds", "ecd_ids"):
                 for ecd in device.ecds:
                     ecd_label = (
-                        ecd.label.value
-                        if ecd.label and ecd.label.value
-                        else "Unlabelled ECD"
+                        ecd.label.value if ecd.label and ecd.label.value else "Unlabelled ECD"
                     )
-                    ecd_status = (
-                        ecd.status.value
-                        if ecd.status and ecd.status.value
-                        else "unknown"
-                    )
+                    ecd_status = ecd.status.value if ecd.status and ecd.status.value else "unknown"
                     ecd_id_str = "N/A"
                     if ecd.ecd_id and ecd.ecd_id.gateway_id and ecd.ecd_id.bus_unit_id:
                         dg = ecd.ecd_id.gateway_id
@@ -236,9 +196,7 @@ def register(mcp: FastMCP) -> None:
                             f"-{ecd.ecd_id.logical_index}"
                         )
                     if wants_property(requested, "ecds"):
-                        lines.append(
-                            f"    ECD: {ecd_label}  [{ecd_status}]  (ID: {ecd_id_str})"
-                        )
+                        lines.append(f"    ECD: {ecd_label}  [{ecd_status}]  (ID: {ecd_id_str})")
                     elif wants_property(requested, "ecd_ids"):
                         lines.append(f"    ECD ID: {ecd_id_str}")
 

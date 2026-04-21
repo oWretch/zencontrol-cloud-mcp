@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastmcp import Context, FastMCP
 
-from zencontrol_mcp.api.rest import ZenControlAPI
-from zencontrol_mcp.models.schemas import DaliCommand, DaliCommandType
-from zencontrol_mcp.tools._helpers import (
+from zencontrol_cloud_mcp.api.rest import ZenControlAPI
+from zencontrol_cloud_mcp.models.schemas import DaliCommand, DaliCommandType
+from zencontrol_cloud_mcp.tools._helpers import (
     _format_command_result,
     confirm_broad_command,
     get_scope_constraint,
@@ -93,9 +93,7 @@ def register(mcp: FastMCP) -> None:
         command = DaliCommand(**cmd_kwargs)  # type: ignore[arg-type]
 
         # Elicitation guard for broad-scope commands
-        if cancelled := await confirm_broad_command(
-            ctx, target_type, target_id, action
-        ):
+        if cancelled := await confirm_broad_command(ctx, target_type, target_id, action):
             return cancelled
 
         try:
@@ -178,16 +176,10 @@ def register(mcp: FastMCP) -> None:
                 level=dali_level,
             )
 
-        action_desc = (
-            f"colour temperature {kelvin}K"
-            if mode == "temperature"
-            else "RGBWAF colour"
-        )
+        action_desc = f"colour temperature {kelvin}K" if mode == "temperature" else "RGBWAF colour"
 
         # Elicitation guard for broad-scope commands
-        if cancelled := await confirm_broad_command(
-            ctx, target_type, target_id, action_desc
-        ):
+        if cancelled := await confirm_broad_command(ctx, target_type, target_id, action_desc):
             return cancelled
 
         try:

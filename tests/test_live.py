@@ -8,10 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from zencontrol_mcp.api.live import LiveAPIError, LiveClient
-from zencontrol_mcp.scope import ScopeConstraint
-from zencontrol_mcp.tools.live import _validate_duration
-
+from zencontrol_cloud_mcp.api.live import LiveAPIError, LiveClient
+from zencontrol_cloud_mcp.scope import ScopeConstraint
+from zencontrol_cloud_mcp.tools.live import _validate_duration
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -104,7 +103,7 @@ class TestLiveClientSubscribeOnce:
         mock_ws.__aenter__ = AsyncMock(return_value=mock_ws)
         mock_ws.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("zencontrol_mcp.api.live.websockets.connect", return_value=mock_ws):
+        with patch("zencontrol_cloud_mcp.api.live.websockets.connect", return_value=mock_ws):
             await client.subscribe_once(
                 method="event.group.arc-level",
                 content={"siteId": "site-123"},
@@ -140,7 +139,7 @@ class TestLiveClientSubscribeOnce:
         mock_ws.__aenter__ = AsyncMock(return_value=mock_ws)
         mock_ws.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("zencontrol_mcp.api.live.websockets.connect", return_value=mock_ws):
+        with patch("zencontrol_cloud_mcp.api.live.websockets.connect", return_value=mock_ws):
             events = await client.subscribe_once(
                 method="event.group.arc-level",
                 content={"siteId": "site-123"},
@@ -165,7 +164,7 @@ class TestLiveClientSubscribeOnce:
         mock_ws.__aexit__ = AsyncMock(return_value=False)
 
         with patch(
-            "zencontrol_mcp.api.live.websockets.connect", return_value=mock_ws
+            "zencontrol_cloud_mcp.api.live.websockets.connect", return_value=mock_ws
         ) as mock_connect:
             await client.subscribe_once(
                 method="event.ecg.arc-level",
@@ -190,7 +189,7 @@ class TestLiveClientSubscribeOnce:
         mock_ws.__aenter__ = AsyncMock(return_value=mock_ws)
         mock_ws.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("zencontrol_mcp.api.live.websockets.connect", return_value=mock_ws):
+        with patch("zencontrol_cloud_mcp.api.live.websockets.connect", return_value=mock_ws):
             with pytest.raises(LiveAPIError, match="Forbidden") as exc_info:
                 await client.subscribe_once(
                     method="event.ecg.arc-level",
@@ -214,7 +213,7 @@ class TestLiveClientSubscribeOnce:
         mock_ws.__aenter__ = AsyncMock(return_value=mock_ws)
         mock_ws.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("zencontrol_mcp.api.live.websockets.connect", return_value=mock_ws):
+        with patch("zencontrol_cloud_mcp.api.live.websockets.connect", return_value=mock_ws):
             with pytest.raises(LiveAPIError, match="Stream interrupted") as exc_info:
                 await client.subscribe_once(
                     method="event.group.arc-level",
@@ -242,7 +241,7 @@ class TestLiveClientSubscribeOnce:
         mock_ws.__aenter__ = AsyncMock(return_value=mock_ws)
         mock_ws.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("zencontrol_mcp.api.live.websockets.connect", return_value=mock_ws):
+        with patch("zencontrol_cloud_mcp.api.live.websockets.connect", return_value=mock_ws):
             events = await client.subscribe_once(
                 method="event.group.arc-level",
                 content={"siteId": "s"},
@@ -265,7 +264,7 @@ class TestLiveClientSubscribeOnce:
         mock_ws.__aenter__ = AsyncMock(return_value=mock_ws)
         mock_ws.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("zencontrol_mcp.api.live.websockets.connect", return_value=mock_ws):
+        with patch("zencontrol_cloud_mcp.api.live.websockets.connect", return_value=mock_ws):
             await client.subscribe_once(
                 method="event.ecg.arc-level",
                 content={"siteId": "s"},
@@ -289,7 +288,7 @@ class TestLiveClientSubscribeOnce:
         handshake_error = websockets.exceptions.InvalidStatus(response)
 
         with patch(
-            "zencontrol_mcp.api.live.websockets.connect",
+            "zencontrol_cloud_mcp.api.live.websockets.connect",
             side_effect=handshake_error,
         ):
             with pytest.raises(LiveAPIError, match="HTTP 403") as exc_info:
@@ -312,7 +311,7 @@ class TestGetLiveLightLevels:
     async def _call(self, ctx, **kwargs):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.live import register
+        from zencontrol_cloud_mcp.tools.live import register
 
         mcp = FastMCP("test")
         register(mcp)
@@ -418,7 +417,7 @@ class TestGetSensorReadings:
     async def _call(self, ctx, **kwargs):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.live import register
+        from zencontrol_cloud_mcp.tools.live import register
 
         mcp = FastMCP("test")
         register(mcp)
@@ -561,7 +560,7 @@ class TestGetSystemVariables:
     async def _call(self, ctx, **kwargs):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.live import register
+        from zencontrol_cloud_mcp.tools.live import register
 
         mcp = FastMCP("test")
         register(mcp)
@@ -611,9 +610,7 @@ class TestGetSystemVariables:
             return_value=[
                 {
                     "gatewayId": {"gtin": 100, "serial": "GW1"},
-                    "systemVariables": [
-                        {"id": {"index": 3}, "signedValue": 5, "magnitude": 127}
-                    ],
+                    "systemVariables": [{"id": {"index": 3}, "signedValue": 5, "magnitude": 127}],
                 }
             ]
         )
@@ -638,7 +635,7 @@ class TestLiveAPIErrorHandling:
     async def _call_tool(tool_name: str, ctx, **kwargs):
         from fastmcp import FastMCP
 
-        from zencontrol_mcp.tools.live import register
+        from zencontrol_cloud_mcp.tools.live import register
 
         mcp = FastMCP("test")
         register(mcp)

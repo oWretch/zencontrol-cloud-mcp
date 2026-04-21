@@ -1,6 +1,6 @@
 """Pydantic models for ZenControl API responses."""
 
-from zencontrol_mcp.models.schemas import (
+from zencontrol_cloud_mcp.models.schemas import (
     DaliCommand,
     Device,
     Ecg,

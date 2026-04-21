@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from zencontrol_mcp.dev import build_child_command, build_snapshot, describe_changes, should_watch_path
+from zencontrol_cloud_mcp.dev import (
+    build_child_command,
+    build_snapshot,
+    describe_changes,
+    should_watch_path,
+)
 
 
 def test_should_watch_python_and_env_files(tmp_path: Path) -> None:
@@ -57,5 +62,5 @@ def test_describe_changes_reports_modified_added_and_deleted(tmp_path: Path) -> 
 def test_build_child_command_targets_server_module() -> None:
     command = build_child_command(["--log-level", "DEBUG"])
 
-    assert command[1:3] == ["-m", "zencontrol_mcp.server"]
+    assert command[1:3] == ["-m", "zencontrol_cloud_mcp.server"]
     assert command[-2:] == ["--log-level", "DEBUG"]

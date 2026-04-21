@@ -23,8 +23,8 @@ import asyncio
 
 from fastmcp import Context, FastMCP
 
-from zencontrol_mcp.api.rest import ZenControlAPI
-from zencontrol_mcp.scope import ScopeConstraint
+from zencontrol_cloud_mcp.api.rest import ZenControlAPI
+from zencontrol_cloud_mcp.scope import ScopeConstraint
 
 
 async def _resolve(api: ZenControlAPI, site_id: str) -> tuple[str, str] | str:
@@ -134,7 +134,9 @@ def register(mcp: FastMCP) -> None:
 
         lines.append(f"\nFloors ({len(floors)}):")
         for floor in floors:
-            lines.append(f"  • {floor.label.value if floor.label and floor.label.value else 'Unlabelled'}  (ID: {floor.floor_id})")
+            lines.append(
+                f"  • {floor.label.value if floor.label and floor.label.value else 'Unlabelled'}  (ID: {floor.floor_id})"
+            )
         if not floors:
             lines.append("  (none)")
 
@@ -146,9 +148,7 @@ def register(mcp: FastMCP) -> None:
 
         lines.append(f"\nZones ({len(zones)}):")
         for zone in zones:
-            label = (
-                zone.label.value if zone.label and zone.label.value else "Unlabelled"
-            )
+            label = zone.label.value if zone.label and zone.label.value else "Unlabelled"
             lines.append(f"  • {label}  (ID: {zone.zone_id})")
         if not zones:
             lines.append("  (none)")
@@ -156,11 +156,7 @@ def register(mcp: FastMCP) -> None:
         lines.append(f"\nGateways ({len(gateways)}):")
         for gw in gateways:
             label = gw.label.value if gw.label and gw.label.value else "Unlabelled"
-            gw_id = (
-                f"{gw.gateway_id.gtin}-{gw.gateway_id.serial}"
-                if gw.gateway_id
-                else "N/A"
-            )
+            gw_id = f"{gw.gateway_id.gtin}-{gw.gateway_id.serial}" if gw.gateway_id else "N/A"
             lines.append(f"  • {label}  (ID: {gw_id})")
         if not gateways:
             lines.append("  (none)")
@@ -171,8 +167,7 @@ def register(mcp: FastMCP) -> None:
         "zencontrol://sites/{site_id}/floors",
         name="ZenControl Site Floors",
         description=(
-            "Floor list for a site. "
-            "{site_id} accepts a UUID, tag (e.g. brown-home), or site name."
+            "Floor list for a site. {site_id} accepts a UUID, tag (e.g. brown-home), or site name."
         ),
         mime_type="text/plain",
     )
@@ -199,7 +194,9 @@ def register(mcp: FastMCP) -> None:
 
         lines = [f"Floors for site '{display}' ({len(floors)}):\n"]
         for floor in floors:
-            lines.append(f"• {floor.label.value if floor.label and floor.label.value else 'Unlabelled'}  (ID: {floor.floor_id})")
+            lines.append(
+                f"• {floor.label.value if floor.label and floor.label.value else 'Unlabelled'}  (ID: {floor.floor_id})"
+            )
         return "\n".join(lines)
 
     @mcp.resource(
@@ -234,9 +231,7 @@ def register(mcp: FastMCP) -> None:
 
         lines = [f"Zones for site '{display}' ({len(zones)}):\n"]
         for zone in zones:
-            label = (
-                zone.label.value if zone.label and zone.label.value else "Unlabelled"
-            )
+            label = zone.label.value if zone.label and zone.label.value else "Unlabelled"
             status = zone.status.value if zone.status and zone.status.value else ""
             status_str = f"  [{status}]" if status else ""
             lines.append(f"• {label}{status_str}  (ID: {zone.zone_id})")
@@ -274,9 +269,7 @@ def register(mcp: FastMCP) -> None:
 
         lines = [f"Groups for site '{display}' ({len(groups)}):\n"]
         for group in groups:
-            label = (
-                group.label.value if group.label and group.label.value else "Unlabelled"
-            )
+            label = group.label.value if group.label and group.label.value else "Unlabelled"
             target_id = "N/A"
             if group.group_id and group.group_id.gateway_id:
                 gw = group.group_id.gateway_id
@@ -287,9 +280,7 @@ def register(mcp: FastMCP) -> None:
     @mcp.resource(
         "zencontrol://sites/{site_id}/gateways",
         name="ZenControl Site Gateways",
-        description=(
-            "DALI gateway list for a site. {site_id} accepts a UUID, tag, or name."
-        ),
+        description=("DALI gateway list for a site. {site_id} accepts a UUID, tag, or name."),
         mime_type="text/plain",
     )
     async def site_gateways_resource(site_id: str, ctx: Context) -> str:
@@ -316,11 +307,7 @@ def register(mcp: FastMCP) -> None:
         lines = [f"Gateways for site '{display}' ({len(gateways)}):\n"]
         for gw in gateways:
             label = gw.label.value if gw.label and gw.label.value else "Unlabelled"
-            gw_id = (
-                f"{gw.gateway_id.gtin}-{gw.gateway_id.serial}"
-                if gw.gateway_id
-                else "N/A"
-            )
+            gw_id = f"{gw.gateway_id.gtin}-{gw.gateway_id.serial}" if gw.gateway_id else "N/A"
             fw = gw.firmware_version or "unknown"
             lines.append(f"• {label}  (ID: {gw_id}, firmware: {fw})")
         return "\n".join(lines)
@@ -394,20 +381,12 @@ def register(mcp: FastMCP) -> None:
 
         lines = [f"Profiles for site '{display}' ({len(profiles)}):\n"]
         for profile in profiles:
-            label = (
-                profile.label.value
-                if profile.label and profile.label.value
-                else "Unlabelled"
-            )
+            label = profile.label.value if profile.label and profile.label.value else "Unlabelled"
             number = (
                 profile.profile_number.value
                 if profile.profile_number and profile.profile_number.value is not None
                 else "N/A"
             )
-            status = (
-                profile.status.value
-                if profile.status and profile.status.value
-                else "unknown"
-            )
+            status = profile.status.value if profile.status and profile.status.value else "unknown"
             lines.append(f"• {label}  (number: {number})  [{status}]")
         return "\n".join(lines)

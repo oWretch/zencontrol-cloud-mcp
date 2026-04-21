@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastmcp import Context, FastMCP
 
-from zencontrol_mcp.api.rest import ZenControlAPI
-from zencontrol_mcp.scope import ScopeConstraint
+from zencontrol_cloud_mcp.api.rest import ZenControlAPI
+from zencontrol_cloud_mcp.scope import ScopeConstraint
 
 
 def register(mcp: FastMCP) -> None:
@@ -74,9 +74,7 @@ def register(mcp: FastMCP) -> None:
 
         lines = [f"Operations are scoped to site '{scope.display_name}'."]
         if scope.site_tag:
-            lines.append(
-                f"Portal URL: https://cloud.zencontrol.com/sites/{scope.site_tag}/"
-            )
+            lines.append(f"Portal URL: https://cloud.zencontrol.com/sites/{scope.site_tag}/")
         lines.append(f"UUID: {scope.site_id}")
         lines.append("Use clear_scope to remove this restriction.")
         return "\n".join(lines)

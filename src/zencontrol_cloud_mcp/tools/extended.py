@@ -6,9 +6,9 @@ import time
 
 from fastmcp import Context, FastMCP
 
-from zencontrol_mcp.api.rest import ZenControlAPI
-from zencontrol_mcp.models.schemas import DaliCommand, DaliCommandType
-from zencontrol_mcp.tools._helpers import (
+from zencontrol_cloud_mcp.api.rest import ZenControlAPI
+from zencontrol_cloud_mcp.models.schemas import DaliCommand, DaliCommandType
+from zencontrol_cloud_mcp.tools._helpers import (
     _format_command_result,
     confirm_broad_command,
     get_scope_constraint,
@@ -56,9 +56,7 @@ def register(mcp: FastMCP) -> None:
         if not gateways:
             return f"No gateways found in {scope_type} {resolved_id}."
 
-        lines: list[str] = [
-            f"Found {len(gateways)} gateway(s) in {scope_type} {resolved_id}:\n"
-        ]
+        lines: list[str] = [f"Found {len(gateways)} gateway(s) in {scope_type} {resolved_id}:\n"]
         for gw in gateways:
             label = gw.label.value if gw.label and gw.label.value else "Unlabelled"
             gw_id_str = "N/A"
@@ -138,9 +136,7 @@ def register(mcp: FastMCP) -> None:
                 bu = loc.device_id.bus_unit_id
                 linked = f"{gw.gtin}-{gw.serial}-{bu.gtin}-{bu.serial}"
 
-            title = (
-                label if wants_property(requested, "label", "name") else "Device location"
-            )
+            title = label if wants_property(requested, "label", "name") else "Device location"
             if wants_property(requested, "status"):
                 lines.append(f"• {title}  [{status}]")
             else:
@@ -230,25 +226,15 @@ def register(mcp: FastMCP) -> None:
         if not profiles:
             return f"No profiles found for site {resolved_id}."
 
-        lines: list[str] = [
-            f"Found {len(profiles)} profile(s) for site {resolved_id}:\n"
-        ]
+        lines: list[str] = [f"Found {len(profiles)} profile(s) for site {resolved_id}:\n"]
         for profile in profiles:
-            label = (
-                profile.label.value
-                if profile.label and profile.label.value
-                else "Unlabelled"
-            )
+            label = profile.label.value if profile.label and profile.label.value else "Unlabelled"
             number = (
                 profile.profile_number.value
                 if profile.profile_number and profile.profile_number.value is not None
                 else "N/A"
             )
-            status = (
-                profile.status.value
-                if profile.status and profile.status.value
-                else "unknown"
-            )
+            status = profile.status.value if profile.status and profile.status.value else "unknown"
             title = label if wants_property(requested, "label", "name") else "Profile"
             parts: list[str] = [f"• {title}"]
             if wants_property(requested, "number", "profile_number"):
@@ -291,9 +277,7 @@ def register(mcp: FastMCP) -> None:
         )
 
         # Elicitation guard for broad-scope commands
-        if cancelled := await confirm_broad_command(
-            ctx, target_type, target_id, "set_profile"
-        ):
+        if cancelled := await confirm_broad_command(ctx, target_type, target_id, "set_profile"):
             return cancelled
 
         try:
@@ -374,7 +358,7 @@ def register(mcp: FastMCP) -> None:
         fetch_results = await _asyncio.gather(*[_fetch(m) for m, _ in metrics])
         results = dict(fetch_results)
 
-        from zencontrol_mcp.models.schemas import AnalyticsResponse
+        from zencontrol_cloud_mcp.models.schemas import AnalyticsResponse
 
         lines: list[str] = [f"Control gear health for {scope_type} {resolved_id}:\n"]
 
@@ -405,9 +389,7 @@ def register(mcp: FastMCP) -> None:
                         value_str += f" ({issue})"
                 else:
                     value_str = str(latest)
-                if wants_property(requested, "id") and wants_property(
-                    requested, "value"
-                ):
+                if wants_property(requested, "id") and wants_property(requested, "value"):
                     lines.append(f"  • {item_id}: {value_str}")
                 elif wants_property(requested, "id"):
                     lines.append(f"  • {item_id}")

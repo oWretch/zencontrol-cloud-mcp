@@ -8,8 +8,7 @@ import httpx
 import pytest
 import respx
 
-from zencontrol_mcp.api.client import ZenControlClient
-
+from zencontrol_cloud_mcp.api.client import ZenControlClient
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -83,9 +82,7 @@ class TestTokenManagement:
     async def test_401_clears_cached_token_and_retries(self):
         """A 401 response in stdio mode clears the cached token and retries."""
         token_store = AsyncMock()
-        token_store.get_valid_token = AsyncMock(
-            side_effect=["expired-token", "fresh-token"]
-        )
+        token_store.get_valid_token = AsyncMock(side_effect=["expired-token", "fresh-token"])
         client = ZenControlClient(token_store=token_store, cache_ttl=0)
 
         route = respx.get("https://api.zencontrol.com/v2/sites")
@@ -141,9 +138,7 @@ class TestRetryBehaviour:
     async def test_retries_exhausted_returns_last_response(self, client_no_cache):
         """When all retries are exhausted the last response is returned."""
         client_no_cache.max_retries = 1
-        respx.get("https://api.zencontrol.com/v2/sites").mock(
-            return_value=httpx.Response(503)
-        )
+        respx.get("https://api.zencontrol.com/v2/sites").mock(return_value=httpx.Response(503))
 
         response = await client_no_cache.get("/v2/sites")
         assert response.status_code == 503
@@ -251,9 +246,7 @@ class TestResponseCache:
     async def test_different_params_get_separate_cache_entries(self, client_a):
         """Cache keys must differ when query params differ."""
         key1 = client_a._cache_key("token", "/v2/sites/abc/groups", None)
-        key2 = client_a._cache_key(
-            "token", "/v2/sites/abc/groups", {"permissionGroup": "ALL"}
-        )
+        key2 = client_a._cache_key("token", "/v2/sites/abc/groups", {"permissionGroup": "ALL"})
         assert key1 != key2
         await client_a.close()
 

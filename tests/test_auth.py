@@ -6,14 +6,12 @@ import base64
 import hashlib
 import time
 
-
-from zencontrol_mcp.auth.oauth import (
+from zencontrol_cloud_mcp.auth.oauth import (
     AUTHORIZE_URL,
     build_authorize_url,
     generate_pkce_pair,
 )
-from zencontrol_mcp.auth.token_store import TokenStore
-
+from zencontrol_cloud_mcp.auth.token_store import TokenStore
 
 # ---------------------------------------------------------------------------
 # build_authorize_url
@@ -68,9 +66,7 @@ class TestGeneratePkcePair:
         # Should not contain padding
         assert "=" not in challenge
         # Should be valid base64url characters
-        allowed = set(
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-        )
+        allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
         assert all(c in allowed for c in challenge)
 
     def test_challenge_matches_verifier(self):

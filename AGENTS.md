@@ -1,4 +1,4 @@
-# Agent Instructions — zencontrol-mcp
+# Agent Instructions — zencontrol-cloud-mcp
 
 This is an MCP (Model Context Protocol) server that lets AI assistants control
 ZenControl DALI-2 lighting systems. Keep these conventions in mind when working
@@ -8,7 +8,7 @@ on the codebase.
 
 - **Python 3.11+**, async-first (`async def` everywhere, `httpx.AsyncClient`).
 - Package manager: **uv**. Run tools with `uv run`.
-- Entry point: `src/zencontrol_mcp/server.py` → `main()`.
+- Entry point: `src/zencontrol_cloud_mcp/server.py` → `main()`.
 
 ## Key Libraries
 
@@ -23,7 +23,7 @@ on the codebase.
 ## File Organisation
 
 ```text
-src/zencontrol_mcp/
+src/zencontrol_cloud_mcp/
   server.py        — FastMCP server, lifespan, CLI
   tools/           — MCP tool definitions (one file per domain)
   api/             — HTTP client (client.py) and domain methods (rest.py)
@@ -105,7 +105,7 @@ consumed by an LLM. Use bullet lists, tables, or short paragraphs.
   - the MCP server management UI in the Extensions or Chat customizations surfaces
 - Do **not** assume a file watcher or background wrapper is sufficient for validating stdio MCP changes inside the active Copilot session.
 - If the goal is a fix/validate loop, the expected workflow is: edit code, restart the `zencontrol` MCP server from VS Code, then retry the MCP tool call.
-- Use `uv run zencontrol-mcp --log-level DEBUG` when reproducing startup issues outside VS Code.
+- Use `uv run zencontrol-cloud-mcp --log-level DEBUG` when reproducing startup issues outside VS Code.
 
 ## Things to Avoid
 

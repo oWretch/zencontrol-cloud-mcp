@@ -16,7 +16,7 @@ from urllib.parse import parse_qs, urlparse
 import platformdirs
 from cryptography.fernet import Fernet, InvalidToken
 
-from zencontrol_mcp.auth.oauth import (
+from zencontrol_cloud_mcp.auth.oauth import (
     DEFAULT_REDIRECT_URI,
     build_authorize_url,
     exchange_code,
@@ -50,9 +50,9 @@ class TokenStore:
     """Encrypted local token storage using platform-appropriate directories.
 
     Storage locations:
-      macOS:   ~/Library/Application Support/zencontrol-mcp/tokens.enc
-      Linux:   ~/.local/share/zencontrol-mcp/tokens.enc
-      Windows: C:\\Users\\<user>\\AppData\\Local\\zencontrol-mcp\\tokens.enc
+    macOS:   ~/Library/Application Support/zencontrol-cloud-mcp/tokens.enc
+    Linux:   ~/.local/share/zencontrol-cloud-mcp/tokens.enc
+    Windows: C:\\Users\\<user>\\AppData\\Local\\zencontrol-cloud-mcp\\tokens.enc
     """
 
     def __init__(
@@ -69,11 +69,9 @@ class TokenStore:
         token_dir = (
             token_path.parent
             if token_path is not None
-            else Path(platformdirs.user_data_dir("zencontrol-mcp"))
+            else Path(platformdirs.user_data_dir("zencontrol-cloud-mcp"))
         )
-        self.token_path = (
-            token_path if token_path is not None else token_dir / "tokens.enc"
-        )
+        self.token_path = token_path if token_path is not None else token_dir / "tokens.enc"
         self.key_path = token_dir / "keys.key"
 
     # ------------------------------------------------------------------
@@ -160,9 +158,7 @@ class TokenStore:
 
                 if "error" in qs:
                     error_message = qs["error"][0]  # raw, for the RuntimeError below
-                    writer.write(
-                        _ERROR_HTML.format(error=html.escape(error_message)).encode()
-                    )
+                    writer.write(_ERROR_HTML.format(error=html.escape(error_message)).encode())
                 elif qs.get("code") and qs.get("state"):
                     received_code = qs["code"][0]
                     received_state = qs["state"][0]
@@ -171,9 +167,7 @@ class TokenStore:
                     # /callback arrived but with neither code+state nor an error —
                     # treat as malformed (e.g. browser favicon fetch on the callback path).
                     writer.write(
-                        _ERROR_HTML.format(
-                            error="Missing required callback parameters"
-                        ).encode()
+                        _ERROR_HTML.format(error="Missing required callback parameters").encode()
                     )
                     await writer.drain()
                     writer.close()
@@ -207,7 +201,7 @@ class TokenStore:
                 "No stored credentials found and interactive authentication timed out "
                 "after 5 minutes. Run the server once in a terminal to complete the "
                 "OAuth login flow before connecting from a headless environment:\n"
-                "  zencontrol-mcp"
+                "  zencontrol-cloud-mcp"
             ) from None
         finally:
             server.close()
