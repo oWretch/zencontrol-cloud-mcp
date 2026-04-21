@@ -82,7 +82,7 @@ jobs:
             # This allows all assets to be attached before release becomes immutable
             gh release create "$TAG" \
               --draft \
-              --title "Release $TAG" \
+              --title "$TAG" \
               --generate-notes \
               dist/*
             echo "Draft release created: $TAG"
