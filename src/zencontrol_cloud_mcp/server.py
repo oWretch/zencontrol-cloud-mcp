@@ -57,8 +57,9 @@ import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from fastmcp import FastMCP
 
 from zencontrol_cloud_mcp.api.client import ZenControlClient
@@ -73,6 +74,34 @@ from zencontrol_cloud_mcp.tools import register_all_tools
 logger = logging.getLogger(__name__)
 
 _DEFAULT_REDIRECT_URI = "http://localhost:9000/callback"
+
+
+def _load_runtime_dotenv() -> str | None:
+    """Load environment variables from .env using runtime-friendly lookup.
+
+    `uv run` (local source checkout) and `uvx` (published install) execute code
+    from different locations. Explicitly resolving `.env` from the current
+    working directory keeps behavior consistent across both modes.
+    """
+    explicit_env_file = os.environ.get("ZENCONTROL_ENV_FILE", "").strip()
+    if explicit_env_file:
+        env_path = Path(explicit_env_file).expanduser()
+        if env_path.is_file():
+            load_dotenv(dotenv_path=env_path, override=False)
+            return str(env_path)
+        return None
+
+    cwd_env_file = Path.cwd() / ".env"
+    if cwd_env_file.is_file():
+        load_dotenv(dotenv_path=cwd_env_file, override=False)
+        return str(cwd_env_file)
+
+    discovered_env_file = find_dotenv(filename=".env", usecwd=True)
+    if discovered_env_file:
+        load_dotenv(dotenv_path=discovered_env_file, override=False)
+        return discovered_env_file
+
+    return None
 
 
 def _load_config(transport: str) -> dict[str, str]:
@@ -252,6 +281,8 @@ def create_server(
 
 def main() -> None:
     """CLI entry point for the ZenControl MCP server."""
+    loaded_env_file = _load_runtime_dotenv()
+
     parser = argparse.ArgumentParser(description="ZenControl MCP Server")
     parser.add_argument(
         "--transport",
@@ -279,12 +310,13 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    load_dotenv()
-
     logging.basicConfig(
         level=getattr(logging, args.log_level),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+
+    if loaded_env_file:
+        logger.debug("Loaded environment variables from %s", loaded_env_file)
 
     server = create_server(
         transport=args.transport,
