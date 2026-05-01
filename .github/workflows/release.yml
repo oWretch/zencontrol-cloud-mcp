@@ -31,16 +31,11 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
       - name: Run semantic-release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          uv run semantic-release version --no-push --no-changelog
+          uv run semantic-release version --no-commit --no-tag --no-push --no-changelog
           # Prints the version that was bumped (if any)
 
       - name: Check if version changed
@@ -57,6 +52,67 @@ jobs:
         run: |
           uv lock
 
+      - name: Compute release metadata
+        if: steps.version_check.outputs.changed == 'true'
+        id: release_meta
+        run: |
+          VERSION=$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          print(data["project"]["version"])
+          PY
+          )
+          TAG="v${VERSION}"
+          COMMIT_MESSAGE="chore(release): ${VERSION}"
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "commit_message=${COMMIT_MESSAGE}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub App token (optional)
+        if: steps.version_check.outputs.changed == 'true' && env.RELEASE_APP_ID != '' && env.RELEASE_APP_PRIVATE_KEY != ''
+        id: app_token
+        env:
+          RELEASE_APP_ID: ${{ secrets.RELEASE_APP_ID }}
+          RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.RELEASE_APP_ID }}
+          private-key: ${{ env.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Resolve release token
+        if: steps.version_check.outputs.changed == 'true'
+        id: release_token
+        run: |
+          if [ -n "${{ steps.app_token.outputs.token }}" ]; then
+            TOKEN="${{ steps.app_token.outputs.token }}"
+            echo "Using GitHub App token for release commit"
+          else
+            TOKEN="${{ github.token }}"
+            echo "Using default github.token for release commit"
+          fi
+
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Create signed release commit and tag
+        if: steps.version_check.outputs.changed == 'true'
+        id: signed_release
+        uses: oWretch/create-signed-commit@v1
+        with:
+          token: ${{ steps.release_token.outputs.token }}
+          commit-message: ${{ steps.release_meta.outputs.commit_message }}
+          tag-name: ${{ steps.release_meta.outputs.tag }}
+          tag-message: Release ${{ steps.release_meta.outputs.tag }}
+          fail-on-empty: false
+          files: |
+            pyproject.toml
+            src/zencontrol_cloud_mcp/__init__.py
+            uv.lock
+            CHANGELOG.md
+
       - name: Build distribution
         if: steps.version_check.outputs.changed == 'true'
         run: uv run --with build python -m build
@@ -65,19 +121,12 @@ jobs:
         if: steps.version_check.outputs.changed == 'true'
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
 
-      - name: Push commits and tags
-        if: steps.version_check.outputs.changed == 'true'
-        run: |
-          git push origin main
-          git push origin --tags
-
       - name: Create GitHub Release (immutable, as draft)
         if: steps.version_check.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get latest tag
-          TAG=$(git describe --tags --abbrev=0)
+          TAG="${{ steps.release_meta.outputs.tag }}"
 
           # Check if release already exists
           if gh release view "$TAG" > /dev/null 2>&1; then
@@ -98,7 +147,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG=$(git describe --tags --abbrev=0)
+          TAG="${{ steps.release_meta.outputs.tag }}"
 
           # Publish the draft release to make it immutable
           # (Only if not already published)
