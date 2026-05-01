@@ -89,7 +89,12 @@ def _load_runtime_dotenv() -> str | None:
         if env_path.is_file():
             load_dotenv(dotenv_path=env_path, override=False)
             return str(env_path)
-        return None
+        logger.warning(
+            "ZENCONTROL_ENV_FILE is set but the file does not exist: %s; "
+            "continuing dotenv lookup with current working directory and "
+            "find_dotenv fallbacks",
+            env_path,
+        )
 
     cwd_env_file = Path.cwd() / ".env"
     if cwd_env_file.is_file():
