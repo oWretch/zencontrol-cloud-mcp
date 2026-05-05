@@ -100,7 +100,7 @@ jobs:
       - name: Create signed release commit and tag
         if: steps.version_check.outputs.changed == 'true'
         id: signed_release
-        uses: oWretch/create-signed-commit@v1
+        uses: oWretch/create-verified-commits@b41fda9dcc647e3d2bcfa5939fc7eb33b63de660 # v1.0.0
         with:
           token: ${{ steps.release_token.outputs.token }}
           commit-message: ${{ steps.release_meta.outputs.commit_message }}
