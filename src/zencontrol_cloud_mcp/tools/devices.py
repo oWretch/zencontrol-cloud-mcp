@@ -109,7 +109,7 @@ def register(mcp: FastMCP) -> None:
         more ECGs (Electronic Control Gear) which are the individually controllable units.
 
         Args:
-            scope_type: The type of parent scope. One of: site, floor, map, control_system, gateway.
+            scope_type: The type of parent scope. One of: site, floor, map.
             scope_id: The ID of the parent scope. When scope_type is 'site', accepts a
                 UUID, tag (e.g. 'brown-home'), or name.
             properties: Optional comma-separated fields to include. Supported:
@@ -126,7 +126,10 @@ def register(mcp: FastMCP) -> None:
         if error := get_scope_constraint(ctx).validate_scope(scope_type, resolved_id):
             return error
 
-        devices = await api.list_devices(scope_type, resolved_id)
+        try:
+            devices = await api.list_devices(scope_type, resolved_id)
+        except ValueError as exc:
+            return str(exc)
 
         if not devices:
             return f"No devices found in {scope_type} {resolved_id}."
