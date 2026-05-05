@@ -72,15 +72,12 @@ jobs:
           echo "commit_message=${COMMIT_MESSAGE}" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub App token (optional)
-        if: steps.version_check.outputs.changed == 'true' && env.RELEASE_APP_ID != '' && env.RELEASE_APP_PRIVATE_KEY != ''
+        if: steps.version_check.outputs.changed == 'true' && secrets.APP_CLIENT_ID != ''
         id: app_token
-        env:
-          RELEASE_APP_ID: ${{ secrets.RELEASE_APP_ID }}
-          RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
         uses: actions/create-github-app-token@7bfa3a4717ef143a604ee0a99d859b8886a96d00 # v1.9.3
         with:
-          app-id: ${{ env.RELEASE_APP_ID }}
-          private-key: ${{ env.RELEASE_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Resolve release token
         if: steps.version_check.outputs.changed == 'true'
