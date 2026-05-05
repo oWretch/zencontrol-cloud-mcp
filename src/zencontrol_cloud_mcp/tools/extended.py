@@ -99,7 +99,7 @@ def register(mcp: FastMCP) -> None:
         They track addressing and commissioning state.
 
         Args:
-            scope_type: Parent scope type. One of: site, floor, map, control_system, gateway.
+            scope_type: Parent scope type. One of: site, floor, map, control_system.
             scope_id: The ID of the parent scope. When scope_type is 'site', accepts a
                 UUID, tag (e.g. 'brown-home'), or name.
             properties: Optional comma-separated fields to include. Supported:
@@ -116,7 +116,10 @@ def register(mcp: FastMCP) -> None:
         if error := get_scope_constraint(ctx).validate_scope(scope_type, resolved_id):
             return error
 
-        locations = await api.list_device_locations(scope_type, resolved_id)
+        try:
+            locations = await api.list_device_locations(scope_type, resolved_id)
+        except ValueError as exc:
+            return str(exc)
 
         if not locations:
             return f"No device locations found in {scope_type} {resolved_id}."

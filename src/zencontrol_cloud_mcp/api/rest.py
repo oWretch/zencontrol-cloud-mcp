@@ -223,7 +223,11 @@ class ZenControlAPI:
 
     async def list_maps(self, scope_type: str, scope_id: str) -> list[Map]:
         """List maps within a scope (site, floor, …)."""
-        url = _build_scoped_url(scope_type, scope_id, "maps")
+        # floor→maps only exists in v1
+        if scope_type == "floor":
+            url = f"/v1/floors/{scope_id}/maps"
+        else:
+            url = _build_scoped_url(scope_type, scope_id, "maps")
         response = await self.client.get(url)
         response.raise_for_status()
         data: dict[str, Any] = response.json()
@@ -282,8 +286,24 @@ class ZenControlAPI:
         scope_type: str,
         scope_id: str,
     ) -> list[Device]:
-        """List devices within a scope."""
-        url = _build_scoped_url(scope_type, scope_id, "devices")
+        """List devices within a scope (site, floor, map).
+
+        Note: The ZenControl API does not expose a devices endpoint for
+        control_system or gateway scopes.
+        """
+        if scope_type in ("control_system", "gateway"):
+            msg = (
+                f"Listing devices by {scope_type!r} scope is not supported by the "
+                "ZenControl API. Use 'site', 'floor', or 'map' instead."
+            )
+            raise ValueError(msg)
+        # floor→devices and map→devices only exist in v1
+        if scope_type == "floor":
+            url = f"/v1/floors/{scope_id}/devices"
+        elif scope_type == "map":
+            url = f"/v1/maps/{scope_id}/devices"
+        else:
+            url = _build_scoped_url(scope_type, scope_id, "devices")
         response = await self.client.get(url)
         response.raise_for_status()
         data: dict[str, Any] = response.json()
@@ -305,11 +325,20 @@ class ZenControlAPI:
     ) -> list[DeviceLocation]:
         """List device locations within a scope.
 
+        Note: The ZenControl API does not expose a device-locations endpoint
+        for gateway scope.
+
         Args:
             scope_type: Parent scope type.
             scope_id: Parent scope identifier.
             permission_group: Pass ``"ALL"`` to include permission metadata.
         """
+        if scope_type == "gateway":
+            msg = (
+                "Listing device locations by 'gateway' scope is not supported by the "
+                "ZenControl API. Use 'site', 'floor', 'map', or 'control_system' instead."
+            )
+            raise ValueError(msg)
         url = _build_scoped_url(scope_type, scope_id, "device-locations")
         params: dict[str, Any] = {}
         if permission_group:
