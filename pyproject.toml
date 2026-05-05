@@ -1,6 +1,6 @@
 [project]
 name = "zencontrol-cloud-mcp"
-version = "1.0.0"
+version = "1.0.3"
 description = "MCP server for ZenControl DALI-2 lighting control via the ZenControl Cloud API"
 readme = "README.md"
 authors = [
@@ -92,7 +92,7 @@ known-first-party = ["zencontrol_cloud_mcp"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "1.0.0"
+version = "1.0.3"
 version_files = [
     "src/zencontrol_cloud_mcp/__init__.py:__version__",
     "pyproject.toml:version"
